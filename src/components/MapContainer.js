@@ -72,21 +72,40 @@ export class MapContainer extends Component  {
   
     amendStyleForInteraction = (visible, index, style) => {
         let newstyle = {...style};
+        let prevlayer = null;
+        if (index > 0) prevlayer = (index - 1).toString() + "_line";
         newstyle.id = index.toString() + "_" + newstyle.id;
         if (!visible) {
-            if (newstyle['type'] === 'line') {
-                newstyle['paint'] = {
-                    "line-color": "grey",
-                    "line-width": 1,
-                    "line-dasharray": [0.2, 2],
-                    "line-opacity": 0.7
-                  }
-            }
-            if (newstyle['type'] === 'fill') {
-                newstyle['paint'] = {
-                    "fill-color": "white",
-                    "fill-opacity": 0.1
-                  }
+            if (index === this.props.selected) {
+                if (newstyle['type'] === 'line') {
+                    newstyle['paint'] = {
+                        "line-color": "grey",
+                        "line-width": 1,
+                        "line-dasharray": [0.2, 2],
+                        "line-opacity": 0.7
+                    }
+                }
+                if (newstyle['type'] === 'fill') {
+                    newstyle['paint'] = {
+                        "fill-color": "white",
+                        "fill-opacity": 0.1
+                    }
+                }
+            } else {
+                if (newstyle['type'] === 'line') {
+                    newstyle['paint'] = {
+                        "line-color": "white",
+                        "line-width": 0,
+                        "line-opacity": 0
+                    }
+                }
+                if (newstyle['type'] === 'fill') {
+                    newstyle['paint'] = {
+                        "fill-color": "white",
+                        "fill-opacity": 0
+                    }
+                }
+
             }
         }
         if (newstyle['paint']['line-opacity'] !== undefined) {
@@ -106,7 +125,7 @@ export class MapContainer extends Component  {
             ]
         }
 
-        return newstyle;
+        return {prevlayer: prevlayer, style: newstyle};
     }
 
     onMouseEnter = (event) => {
@@ -163,19 +182,15 @@ export class MapContainer extends Component  {
             <GeolocateControl position="top-left" />  
             <NavigationControl visualizePitch={true} position="top-left" />     
 
-            {this.props.layers.toReversed().map((layer, index) => {
-                var absoluteindex = this.props.layers.length - index - 1;
+            {this.props.layers.map((layer, index) => {
                 return (
-                    <div key={absoluteindex.toString() + this.props.refreshIndex}>
-                        <Source key={absoluteindex} id={absoluteindex.toString()} type="geojson" data={layer.featurecollection}>
+                    <div key={index.toString()}>
+                        <Source key={index} id={index.toString()} type="geojson" data={layer.featurecollection}>
                             {layer.styles.map((style, styleindex) => {
-                                var localstyle = this.amendStyleForInteraction(layer.visible, absoluteindex, style);
-                                if (layer.visible || (this.props.selected === absoluteindex)) {
-                                    return (<Layer key={style.id} {...localstyle} />)
-                                }
+                                var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
+                                return (<Layer key={style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
                             })}
                         </Source>
-
                     </div>
                 )
             })}

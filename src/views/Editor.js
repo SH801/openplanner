@@ -35,7 +35,6 @@ class Editor extends Component {
     mapdraw: null,
     featureselected: null,
     layerselected: null,
-    refreshIndex: 0
   }
 
   constructor(props) {
@@ -86,9 +85,7 @@ class Editor extends Component {
   }
 
   handleReorder = (event) => {
-    console.log('Dragged from index', event.detail.from, 'to', event.detail.to);
-    this.setState({refreshIndex: this.state.refreshIndex + 1, layers: event.detail.complete(this.state.layers)});
-
+    this.setState({layers: event.detail.complete(this.state.layers)});
     if (this.state.selected !== null) {
       if (event.detail.from === this.state.selected) this.setState({selected: event.detail.to});
       else {
@@ -174,7 +171,6 @@ class Editor extends Component {
             <div id="mainpane" style={{ height: "100vh", position: "relative" }}>
                 <div style={{ height: "100%" }}>
                     <MapContainer 
-                      refreshIndex={this.state.refreshIndex}
                       onDataChange={this.onDataChange}
                       onSelectionChange={this.onSelectionChange}
                       onSetMap={this.onSetMap}
