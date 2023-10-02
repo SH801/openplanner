@@ -1,0 +1,37 @@
+,
+    {
+        "id": "gl-draw-line-static",
+        "type": "line",
+        "filter": ["all", ["==", "$type", "LineString"], ["==", "mode", "static"]],
+        "layout": {
+            "line-cap": "round",
+            "line-join": "round"
+        },
+        "paint": {
+            "line-color": "#000",
+            "line-width": 3
+        }
+    },
+    {
+      "id": "gl-draw-polygon-fill-static",
+      "type": "fill",
+      "filter": ["all", ["==", "$type", "Polygon"], ["==", "mode", "static"]],
+      "paint": {
+          "fill-color": "#000",
+          "fill-outline-color": "#000",
+          "fill-opacity": 0.1
+      }
+    },
+    {
+      "id": "gl-draw-polygon-stroke-static",
+      "type": "line",
+      "filter": ["all", ["==", "$type", "Polygon"], ["==", "mode", "static"]],
+      "layout": {
+          "line-cap": "round",
+          "line-join": "round"
+      },
+      "paint": {
+          "line-color": "#000",
+          "line-width": 3
+      }
+    }

@@ -1,0 +1,212 @@
+[
+    {
+        "name": "Layer 1",
+        "visible": true,
+        "featurecollection": {
+            "type": "FeatureCollection",
+            "features": [
+                {"id":1,"type":"Feature","properties":{},"geometry":{"coordinates":[[[-4.694195500520692,55.18045725223513],[-4.583328666950848,53.66989315117729],[-2.366951383610484,54.96877992160657],[-4.694195500520692,55.18045725223513]]],"type":"Polygon"}}
+            ]
+        },
+        "styles": [
+            {
+              "type": "line",
+              "filter": [
+                  "all"
+              ],
+              "id": "line",
+              "paint": {
+                "line-color": "blue",
+                "line-width": 13,
+                "line-opacity": 0.7
+              }
+            },
+            {
+              "type": "fill",
+              "filter": [
+                "all"
+              ], 
+              "id": "fill",
+              "paint": {
+                "fill-color": "green",
+                "fill-opacity": 0.7
+              }
+            }
+        ]
+    },
+    {
+        "name": "Layer 2",
+        "visible": false,
+        "featurecollection": {
+            "type": "FeatureCollection",
+            "features": [
+                {"id":2,"type":"Feature","properties":{},"geometry":{"coordinates":[[[0.494064297941577,55.53271037066321],[-1.194129433447614,54.14225758318767],[0.6459788450436861,53.235750444851845],[1.9756480134036565,54.95373855125143],[0.494064297941577,55.53271037066321]]],"type":"Polygon"}}
+            ]
+        },
+        "styles": [
+            {
+              "type": "line",
+              "filter": [
+                  "all"
+              ],
+              "id": "line",
+              "paint": {
+                "line-color": "red",
+                "line-width": 3,
+                "line-opacity": 1          
+              }
+            },
+            {
+              "type": "fill",
+              "filter": [
+                "all"
+              ], 
+              "id": "fill",
+              "paint": {
+                "fill-color": "orange",
+                "fill-opacity": 1          
+              }
+            }
+        ]
+    },
+    {
+        "name": "Layer 3",
+        "visible": false,
+        "featurecollection": {
+            "type": "FeatureCollection",
+            "features": [
+                {"id":3,"type":"Feature","properties":{},"geometry":{"coordinates":[[[-3.2553183394683174,54.335768999439495],[-3.6376656082413206,53.519489498933325],[-2.0081835370478984,53.45373672908221],[-2.018842436901622,54.20349563415871],[-2.3275115023929516,54.48384389404609],[-2.960599695894558,53.838266145758524],[-3.2553183394683174,54.335768999439495]]],"type":"Polygon"}}
+            ]
+        },
+        "styles": [
+            {
+              "type": "line",
+              "filter": [
+                  "all"
+              ],
+              "id": "line",
+              "paint": {
+                "line-color": "purple",
+                "line-width": 3,
+                "line-opacity": 1          
+              }
+            },
+            {
+              "type": "fill",
+              "filter": [
+                "all"
+              ], 
+              "id": "fill",
+              "paint": {
+                "fill-color": "red",
+                "fill-opacity": 1          
+              }
+            }
+        ]
+    },
+    {
+        "name": "Layer 4",
+        "visible": false,
+        "featurecollection": {
+            "type": "FeatureCollection",
+            "features": [
+                {"id":4,"type":"Feature","properties":{},"geometry":{"coordinates":[[[-1.3096263827581538,53.86008899125849],[-1.5818748959881646,53.35956852920944],[-0.4388695534478302,53.34882513090315],[-0.41990147576780146,53.665390088967825],[-0.9496171540834268,53.45028610305843],[-0.8326692720623328,53.7754926541204],[-1.2864738434367098,53.58856706332989],[-1.0932118741933152,53.83169389581161],[-1.3096263827581538,53.86008899125849]]],"type":"Polygon"}}
+            ]
+        },
+        "styles": [
+            {
+              "type": "line",
+              "filter": [
+                  "all"
+              ],
+              "id": "line",
+              "paint": {
+                "line-color": "orange",
+                "line-width": 3,
+                "line-opacity": 1          
+              }
+            },
+            {
+              "type": "fill",
+              "filter": [
+                "all"
+              ], 
+              "id": "fill",
+              "paint": {
+                "fill-color": "yellow",
+                "fill-opacity": 1          
+              }
+            }
+        ]
+    },
+    {
+        "name": "Layer 5",
+        "visible": false,
+        "featurecollection": {
+            "type": "FeatureCollection",
+            "features": [
+                {"id":5,"type":"Feature","properties":{},"geometry":{"coordinates":[[[-3.97130403160412,57.592303778482886],[-2.7685552312558457,55.97326311197202],[-2.5501891974942623,57.45566185300706],[-1.8170331373366935,55.94275886016297],[-1.47901384138774,57.130755091582614],[-0.8133013138934757,55.82143549802021],[-0.3243958148264312,57.04242478185395],[-0.20362699305056253,55.75117211841544],[0.08319887551471083,57.78812848021104],[-0.8695902390214485,56.813175593573334],[-1.691152556649456,57.8695384663518],[-1.942840445638609,56.93278869086646],[-2.6847191381669404,57.82296262406723],[-2.994912040035956,56.878291657022146],[-3.5300910534847105,57.776535661903495],[-3.97130403160412,57.592303778482886]]],"type":"Polygon"}}
+            ]
+        },
+        "styles": [
+            {
+              "type": "line",
+              "filter": [
+                  "all"
+              ],
+              "id": "line",
+              "paint": {
+                "line-color": "purple",
+                "line-width": 3,
+                "line-opacity": 1          
+              }
+            },
+            {
+              "type": "fill",
+              "filter": [
+                "all"
+              ], 
+              "id": "fill",
+              "paint": {
+                "fill-color": "blue",
+                "fill-opacity": 1          
+              }
+            }
+        ]
+    },
+    {
+        "name": "Overlapping Layer 6",
+        "visible": true,
+        "featurecollection": {
+            "type": "FeatureCollection",
+            "features": [
+                {"id":6,"type":"Feature","properties":{},"geometry":{"coordinates":[[[-3.931875827129801,56.71121167232832],[-3.9456411369002353,54.38243702680845],[-0.7978090088772944,53.423595881899416],[0.6764974422301293,54.87097849303959],[1.082849290086557,56.77625763245098],[-3.931875827129801,56.71121167232832]]],"type":"Polygon"}}                
+            ]
+        },
+        "styles": [
+            {
+              "type": "line",
+              "filter": [
+                  "all"
+              ],
+              "id": "line",
+              "paint": {
+                "line-color": "grey",
+                "line-width": 3,
+                "line-opacity": 1          
+              }
+            },
+            {
+              "type": "fill",
+              "filter": [
+                "all"
+              ], 
+              "id": "fill",
+              "paint": {
+                "fill-color": "white",
+                "fill-opacity": 1          
+              }
+            }
+        ]
+    }
+]
