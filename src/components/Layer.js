@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { eyeOutline, eyeOffOutline } from 'ionicons/icons';
+import { eyeOutline, eyeOffOutline, settingsOutline } from 'ionicons/icons';
 import { 
     IonItem,
     IonLabel,
@@ -14,8 +14,9 @@ class Layer extends Component {
         return (
             <IonItem color={this.props.selected ? "primary" : null} onClick={() => this.props.onClick(this.props.index)}>
                 <IonLabel>{this.props.layer.name}</IonLabel>
-                <IonIcon onClick={() => this.props.toggleVisibility(this.props.index)} icon={this.props.layer.visible ? eyeOutline : eyeOffOutline} className="entity-activate"/>
-                <IonReorder slot="end"></IonReorder>
+                <IonIcon className="layer-icon" onClick={() => this.props.layerEdit(this.props.index)} icon={settingsOutline} />
+                <IonIcon className="layer-icon" onClick={() => this.props.toggleVisibility(this.props.index)} icon={this.props.layer.visible ? eyeOutline : eyeOffOutline} />
+                <IonReorder></IonReorder>
             </IonItem>
         )
     }

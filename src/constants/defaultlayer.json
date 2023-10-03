@@ -1,0 +1,33 @@
+{
+    "name": "Untitled layer",
+    "visible": true,
+    "featurecollection": {
+        "type": "FeatureCollection",
+        "features": []
+    },
+    "styles": [
+        {
+          "type": "line",
+          "filter": [
+              "all"
+          ],
+          "id": "line",
+          "paint": {
+            "line-color": "black",
+            "line-width": 1,
+            "line-opacity": 1
+          }
+        },
+        {
+          "type": "fill",
+          "filter": [
+            "all"
+          ], 
+          "id": "fill",
+          "paint": {
+            "fill-color": "white",
+            "fill-opacity": 0.5
+          }
+        }
+    ]
+}

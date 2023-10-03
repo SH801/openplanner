@@ -6,7 +6,7 @@ import { setupIonicReact } from '@ionic/react';
 // import { Provider } from "react-redux";
 // import thunk from "redux-thunk";
 
-import Editor from './views/Editor';
+import Editor from './components/Editor';
 import '@ionic/react/css/core.css';
 
 // let store = createStore(CarbonMapApp, applyMiddleware(thunk));

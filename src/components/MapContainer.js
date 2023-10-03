@@ -10,7 +10,7 @@ import {
     DEFAULT_PITCH,
     DEFAULT_BEARING,
 } from "../constants";
-import queryString from "query-string";
+// import queryString from "query-string";
   
 const isDev = () =>  !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 
@@ -25,6 +25,9 @@ export class MapContainer extends Component  {
       scrollWheelZoom: true,	
       selectedfeature: null,
       selectedlayer: null,
+      idstart: null,
+      interactiveLayerIds: [],
+      mode: null,
     }
     
     constructor(props) {
@@ -32,6 +35,7 @@ export class MapContainer extends Component  {
       this.mapRef = React.createRef();
       this.popupRef = React.createRef();
   
+      this.state.idstart = props.idstart;
       this.state.lat = props.lat;
       this.state.lng = props.lng;
       this.state.zoom = props.zoom;  
@@ -46,6 +50,33 @@ export class MapContainer extends Component  {
     //   if (params.bearing !== undefined) this.state.bearing = params.bearing;  
     }
     
+    getInteractiveLayerIds = () => {
+        var interactiveLayerIds = [];
+        this.props.layers.map((layer, index) => {
+            layer.styles.map((style, styleindex) => {
+                if (layer.visible) {
+                    var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
+                    interactiveLayerIds.push(localstyle.style.id);    
+                }
+                return interactiveLayerIds;
+            })
+            return interactiveLayerIds;
+        })
+        return interactiveLayerIds;
+    }
+
+    getLayerFromFeatureId = (featureId) => {
+        var layerId = null
+        this.props.layers.map((layer, index) => {
+            layer.featurecollection.features.map((feature, featureindex) => {
+                if (feature.id === featureId) layerId = index;
+                return layerId;
+            })
+            return layerId;
+        })
+        return layerId;
+    }
+
     onRender = (event) => {
     }
   
@@ -60,7 +91,22 @@ export class MapContainer extends Component  {
         map.on('draw.render', (data) => {
         //    this.props.onDataChange(data);
         });
+
+        map.on('draw.modechange', (mode) => {
+            this.setState({mode: mode.mode});
+        });
     
+        map.on('draw.create', (data) => {
+            // Replace string id with numerical id so we can setFeatureState on it
+            var feature = data.features[0];
+            this.props.mapdraw.delete(feature.id);
+            var newId = this.state.idstart + 1;
+            feature.id = newId;
+            this.props.mapdraw.add(feature);
+            this.setState({idstart: newId});
+            this.props.onDataChange(data);
+        });
+
         map.on('draw.selectionchange', (data) => {
             this.props.onSelectionChange(data);
         });
@@ -71,7 +117,8 @@ export class MapContainer extends Component  {
     }
   
     amendStyleForInteraction = (visible, index, style) => {
-        let newstyle = {...style};
+        let JSONstyle = JSON.stringify(style);
+        let newstyle = JSON.parse(JSONstyle);
         let prevlayer = null;
         if (index > 0) prevlayer = (index - 1).toString() + "_line";
         newstyle.id = index.toString() + "_" + newstyle.id;
@@ -138,6 +185,15 @@ export class MapContainer extends Component  {
     }
   
     onClick = (event) => {
+        if (this.state.mode !== 'draw_polygon') {
+            if (event.features.length > 0) {
+                var featureId = event.features[0].id;
+                var layerId = this.getLayerFromFeatureId(featureId);
+                if (layerId !== null) {
+                    this.props.onSetSelected(layerId, featureId);
+                }
+            }      
+        }
     }
   
     onResize = (event) => {
@@ -175,7 +231,8 @@ export class MapContainer extends Component  {
               zoom: this.state.zoom,
               pitch: this.state.pitch,
               bearing: this.state.bearing
-            }}    
+            }}  
+            interactiveLayerIds={this.getInteractiveLayerIds()}
             mapStyle={require(isDev() ? '../constants/mapstyletest.json' : '../constants/mapstyle.json')}
           >
   
@@ -188,13 +245,12 @@ export class MapContainer extends Component  {
                         <Source key={index} id={index.toString()} type="geojson" data={layer.featurecollection}>
                             {layer.styles.map((style, styleindex) => {
                                 var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
-                                return (<Layer key={style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
+                                return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
                             })}
                         </Source>
                     </div>
                 )
             })}
-
 
         </Map>
       )

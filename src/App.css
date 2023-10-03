@@ -36,3 +36,53 @@
     transform: rotate(360deg);
   }
 }
+
+input[type="color"] {
+  border: 0px white solid;
+  padding: 0px;  
+}
+
+.coloricons {
+  padding-right: 10px;
+}
+
+#layerproperties-modal {
+  --width: 90%!important;
+  --height: 90%!important;
+}
+
+.wrapperClassName {
+  padding: 0px;
+  height: auto;
+}
+
+.editorClassName {
+  height: 300px!important;
+  overflow-y: scroll;
+}
+
+.layer-icon {
+  padding-right: 10px
+}
+
+ion-split-pane {
+  --side-min-width: 20px;
+  --side-max-width: 800px;
+  --side-width: 300px;
+}
+
+.vertical-divider {
+  height: 100%;
+  width: 6px;
+  
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  
+  background: #e2e2e2;
+  
+  z-index: 10;
+    
+  cursor: col-resize;
+}

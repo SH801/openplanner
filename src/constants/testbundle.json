@@ -2,6 +2,7 @@
     {
         "name": "Layer 1",
         "visible": true,
+        "content": "<p>Some <b>sample text</b> for Layer 1</p>",
         "featurecollection": {
             "type": "FeatureCollection",
             "features": [
@@ -16,7 +17,7 @@
               ],
               "id": "line",
               "paint": {
-                "line-color": "blue",
+                "line-color": "#ff0000",
                 "line-width": 13,
                 "line-opacity": 0.7
               }
@@ -28,7 +29,7 @@
               ], 
               "id": "fill",
               "paint": {
-                "fill-color": "green",
+                "fill-color": "#35C03E",
                 "fill-opacity": 0.7
               }
             }
@@ -37,6 +38,7 @@
     {
         "name": "Layer 2",
         "visible": false,
+        "content": "<p>Hey this <strong>editor</strong> rocks 😀</p>",
         "featurecollection": {
             "type": "FeatureCollection",
             "features": [
