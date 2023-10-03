@@ -153,7 +153,7 @@ class Editor extends Component {
   layerDuplicate = (event) => {
     var layers = [...this.state.layers];
     if (this.state.selected !== null) {
-      var layer = {...layers[this.state.selected]};
+      var layer = JSON.parse(JSON.stringify(layers[this.state.selected]));
       layer.name = "Copy of " + layer.name;
       var maxId = this.getIdStart(layers);
       for(let i = 0; i < layer.featurecollection.features.length; i++) {
@@ -228,7 +228,7 @@ class Editor extends Component {
     layerproperties.opacityfill = opacityfill;
     layerproperties.widthline = widthline;
 
-    this.setState({showlayerproperties: true, layerproperties: layerproperties});
+    this.setState({selected: key, showlayerproperties: true, layerproperties: layerproperties});
   }
 
   onEditorStateChange = (editorState) => {
@@ -338,11 +338,21 @@ class Editor extends Component {
       layers[this.state.selected]['featurecollection'] = featurecollection;
       this.setState({layers: layers});
     }
-    this.mapdraw.set(this.state.layers[index]['featurecollection']);
+    if (index === null) {
+      this.mapdraw.deleteAll();
+    } else {
+      this.mapdraw.set(this.state.layers[index]['featurecollection']);
+    }
     this.setState({selected: index});
   }
-  onClick = (key) => {
+
+  onClick = (event, key) => {
     this.setSelected(key);
+    event.stopPropagation();
+  }
+
+  deselectLayers = () => {
+    this.setSelected(null);
   }
 
   render() {
@@ -379,7 +389,7 @@ class Editor extends Component {
             </div>
 
             <IonMenu side="end" contentId="mainpane">
-              <IonContent className="ion-padding">
+              <IonContent onClick={this.deselectLayers} className="ion-padding">
 
               <LayerProperties 
                 isOpen={this.state.showlayerproperties} 

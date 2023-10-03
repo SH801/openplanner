@@ -50,6 +50,7 @@ class LayerProperties extends Component {
             isOpen={this.props.isOpen} 
             onWillDismiss={(ev) => this.onWillDismiss(ev)} 
             backdropDismiss={false}
+            onClick={(event) => event.stopPropagation()}
         >
             <IonHeader>
                 <IonToolbar>
