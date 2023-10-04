@@ -282,13 +282,13 @@ class Editor extends Component {
           if (currlayer.iconurl === "") {
             currlayer.styles[i]['layout']['icon-image'] = "internal-" + currlayer.iconinternal;
           } else {
-            this.state.map.loadImage(currlayer.iconurl, (error, image) => {
-                if (error) throw error;
-                this.state.map.addImage('external-' + this.state.selected.toString(), image);
-            });            
-            currlayer.styles[i]['layout']['icon-image'] = "external-" + this.state.selected.toString();
+            // ** This won't work when layers are reordered - need to use unique layer ID
+            // this.state.map.loadImage(currlayer.iconurl, (error, image) => {
+            //     if (error) throw error;
+            //     this.state.map.addImage('external-' + this.state.selected.toString(), image);
+            // });            
+            // currlayer.styles[i]['layout']['icon-image'] = "external-" + this.state.selected.toString();
           }
-          console.log(this.state.layerproperties.iconsize, currlayer);
         }
       }  
 
@@ -395,74 +395,96 @@ class Editor extends Component {
 
     for (let file of event.target.files){
       (new Blob([file])).text().then((GeoJSONContent) => {
-        const GeoJSON = JSON.parse(GeoJSONContent);
+        let featurecollections = JSON.parse(GeoJSONContent);
         let maxid = this.state.idstart;
-        let features = GeoJSON.features;
+        // If single featurecollections, convert to array of featurecollections
+        if (!Array.isArray(featurecollections)) featurecollections = [featurecollections];        
         let layers = this.state.layers;
   
         if (this.state.separatelayers) {
-          // Create separate layer for each feature
-          // This allows per-feature styling through layer-specific stylesheet
-          for(let i = 0; i < features.length; i++) {
+          // Create separate layer for each featurecollection
+          // This allows per-featurecollection styling through layer-specific stylesheet
+          for(let i = 0; i < featurecollections.length; i++) {
             let defaultlayer = JSON.parse(defaultlayerText);        
-            if (features[i]['properties']['name'] !== undefined) defaultlayer.name = features[i]['properties']['name'];
+            if (featurecollections[i]['properties']['name'] !== undefined) defaultlayer.name = featurecollections[i]['properties']['name'];
             else defaultlayer.name = "Imported layer";
-            if (features[i]['properties']['visible'] !== undefined) defaultlayer.visible = features[i]['properties']['visible'];
-            if (features[i]['properties']['title'] !== undefined) defaultlayer.title = features[i]['properties']['title'];
-            if (features[i]['properties']['content'] !== undefined) defaultlayer.content = features[i]['properties']['content'];
-            // We assume line style is style[0] and feature style is style[1]
-            if (features[i]['properties']['line-color'] !== undefined) defaultlayer.styles[0]['paint']['line-color'] = features[i]['properties']['line-color'];
-            if (features[i]['properties']['line-width'] !== undefined) defaultlayer.styles[0]['paint']['line-width'] = features[i]['properties']['line-width'];
-            if (features[i]['properties']['line-opacity'] !== undefined) defaultlayer.styles[0]['paint']['line-opacity'] = features[i]['properties']['line-opacity'];
-            if (features[i]['properties']['fill-color'] !== undefined) defaultlayer.styles[1]['paint']['fill-color'] = features[i]['properties']['fill-color'];
-            if (features[i]['properties']['fill-opacity'] !== undefined) defaultlayer.styles[1]['paint']['fill-opacity'] = features[i]['properties']['fill-opacity'];
-            delete features[i]['properties']['name'];
-            delete features[i]['properties']['visible'];
-            delete features[i]['properties']['title'];
-            delete features[i]['properties']['content'];
-            delete features[i]['properties']['line-color'];
-            delete features[i]['properties']['line-width'];
-            delete features[i]['properties']['line-opacity'];
-            delete features[i]['properties']['fill-color'];
-            delete features[i]['properties']['fill-opacity'];
-            features[i]['id'] = maxid;
-            maxid++;        
-            defaultlayer['featurecollection']['features'] = [features[i]];
+            if (featurecollections[i]['properties']['visible'] !== undefined) defaultlayer.visible = featurecollections[i]['properties']['visible'];
+            if (featurecollections[i]['properties']['title'] !== undefined) defaultlayer.title = featurecollections[i]['properties']['title'];
+            if (featurecollections[i]['properties']['content'] !== undefined) defaultlayer.content = featurecollections[i]['properties']['content'];
+            // We assume line style is style[0], fill style is style[1] and symbol style is style[2]
+            if (featurecollections[i]['properties']['line-color'] !== undefined) defaultlayer.styles[0]['paint']['line-color'] = featurecollections[i]['properties']['line-color'];
+            if (featurecollections[i]['properties']['line-width'] !== undefined) defaultlayer.styles[0]['paint']['line-width'] = featurecollections[i]['properties']['line-width'];
+            if (featurecollections[i]['properties']['line-opacity'] !== undefined) defaultlayer.styles[0]['paint']['line-opacity'] = featurecollections[i]['properties']['line-opacity'];
+            if (featurecollections[i]['properties']['fill-color'] !== undefined) defaultlayer.styles[1]['paint']['fill-color'] = featurecollections[i]['properties']['fill-color'];
+            if (featurecollections[i]['properties']['fill-opacity'] !== undefined) defaultlayer.styles[1]['paint']['fill-opacity'] = featurecollections[i]['properties']['fill-opacity'];
+            if (featurecollections[i]['properties']['icon-size'] !== undefined) defaultlayer.styles[2]['layout']['icon-size'] = featurecollections[i]['properties']['icon-size'];
+            if (featurecollections[i]['properties']['iconinternal'] !== undefined) {
+              defaultlayer.iconinternal = featurecollections[i]['properties']['iconinternal'];
+              defaultlayer.styles[2]['layout']['icon-image'] = "internal-" + featurecollections[i]['properties']['iconinternal'];
+            }
+            // Need to implement iconurl so it loads image on layer with correct layer id
+            delete featurecollections[i]['properties']['name'];
+            delete featurecollections[i]['properties']['visible'];
+            delete featurecollections[i]['properties']['title'];
+            delete featurecollections[i]['properties']['content'];
+            delete featurecollections[i]['properties']['line-color'];
+            delete featurecollections[i]['properties']['line-width'];
+            delete featurecollections[i]['properties']['line-opacity'];
+            delete featurecollections[i]['properties']['fill-color'];
+            delete featurecollections[i]['properties']['fill-opacity'];
+            delete featurecollections[i]['properties']['icon-size'];
+            delete featurecollections[i]['properties']['iconinternal'];
+            for(let j = 0; j < featurecollections[i].features.length; j++) {
+              featurecollections[i].features[j]['id'] = maxid;
+              maxid++;          
+            }
+            console.log(defaultlayer);
+            defaultlayer['featurecollection']['features'] = featurecollections[i].features;
             layers.push(defaultlayer);
           }
         } else {
-          if (features.length === 0) return;
 
           // We take possible layer properties from first feature - though many properties may be blank
-          let defaultlayer = JSON.parse(defaultlayerText);        
-          if (features[0]['properties']['name'] !== undefined) defaultlayer.name = features[0]['properties']['name'];
+          let defaultlayer = JSON.parse(defaultlayerText);  
+          var allfeatures = [];      
+          if (featurecollections[0]['properties']['name'] !== undefined) defaultlayer.name = featurecollections[0]['properties']['name'];
           else defaultlayer.name = "Imported layer";
 
-          if (features[0]['properties']['visible'] !== undefined) defaultlayer.visible = features[0]['properties']['visible'];
-          if (features[0]['properties']['title'] !== undefined) defaultlayer.title = features[0]['properties']['title'];
-          if (features[0]['properties']['content'] !== undefined) defaultlayer.content = features[0]['properties']['content'];
-          // We assume line style is style[0] and feature style is style[1]
-          if (features[0]['properties']['line-color'] !== undefined) defaultlayer.styles[0]['paint']['line-color'] = features[0]['properties']['line-color'];
-          if (features[0]['properties']['line-width'] !== undefined) defaultlayer.styles[0]['paint']['line-width'] = features[0]['properties']['line-width'];
-          if (features[0]['properties']['line-opacity'] !== undefined) defaultlayer.styles[0]['paint']['line-opacity'] = features[0]['properties']['line-opacity'];
-          if (features[0]['properties']['fill-color'] !== undefined) defaultlayer.styles[1]['paint']['fill-color'] = features[0]['properties']['fill-color'];
-          if (features[0]['properties']['fill-opacity'] !== undefined) defaultlayer.styles[1]['paint']['fill-opacity'] = features[0]['properties']['fill-opacity'];
-
-          for(let i = 0; i < features.length; i++) {
-            delete features[i]['properties']['name'];
-            delete features[i]['properties']['visible'];
-            delete features[i]['properties']['title'];
-            delete features[i]['properties']['content'];
-            delete features[i]['properties']['line-color'];
-            delete features[i]['properties']['line-width'];
-            delete features[i]['properties']['line-opacity'];
-            delete features[i]['properties']['fill-color'];
-            delete features[i]['properties']['fill-opacity'];  
-            features[i]['id'] = maxid;
-            maxid++;        
+          if (featurecollections[0]['properties']['visible'] !== undefined) defaultlayer.visible = featurecollections[0]['properties']['visible'];
+          if (featurecollections[0]['properties']['title'] !== undefined) defaultlayer.title = featurecollections[0]['properties']['title'];
+          if (featurecollections[0]['properties']['content'] !== undefined) defaultlayer.content = featurecollections[0]['properties']['content'];
+          // We assume line style is style[0], fill style is style[1], and symbol style is style[2]
+          if (featurecollections[0]['properties']['line-color'] !== undefined) defaultlayer.styles[0]['paint']['line-color'] = featurecollections[0]['properties']['line-color'];
+          if (featurecollections[0]['properties']['line-width'] !== undefined) defaultlayer.styles[0]['paint']['line-width'] = featurecollections[0]['properties']['line-width'];
+          if (featurecollections[0]['properties']['line-opacity'] !== undefined) defaultlayer.styles[0]['paint']['line-opacity'] = featurecollections[0]['properties']['line-opacity'];
+          if (featurecollections[0]['properties']['fill-color'] !== undefined) defaultlayer.styles[1]['paint']['fill-color'] = featurecollections[0]['properties']['fill-color'];
+          if (featurecollections[0]['properties']['fill-opacity'] !== undefined) defaultlayer.styles[1]['paint']['fill-opacity'] = featurecollections[0]['properties']['fill-opacity'];
+          if (featurecollections[0]['properties']['icon-size'] !== undefined) defaultlayer.styles[2]['layout']['icon-size'] = featurecollections[0]['properties']['icon-size'];
+          if (featurecollections[0]['properties']['iconinternal'] !== undefined) {
+            defaultlayer.iconinternal = featurecollections[0]['properties']['iconinternal'];
+            defaultlayer.styles[2]['layout']['icon-image'] = "internal-" + featurecollections[0]['properties']['iconinternal'];
           }
 
-          defaultlayer['featurecollection']['features'] = features;
+          for(let i = 0; i < featurecollections.length; i++) {
+            delete featurecollections[i]['properties']['name'];
+            delete featurecollections[i]['properties']['visible'];
+            delete featurecollections[i]['properties']['title'];
+            delete featurecollections[i]['properties']['content'];
+            delete featurecollections[i]['properties']['line-color'];
+            delete featurecollections[i]['properties']['line-width'];
+            delete featurecollections[i]['properties']['line-opacity'];
+            delete featurecollections[i]['properties']['fill-color'];
+            delete featurecollections[i]['properties']['fill-opacity'];  
+            delete featurecollections[i]['properties']['icon-size'];
+            delete featurecollections[i]['properties']['iconinternal'];
+            for(let j = 0; j < featurecollections[i].features.length; j++) {
+              featurecollections[i].features[j]['id'] = maxid;
+              maxid++;   
+              allfeatures.push(featurecollections[i].features[j]);       
+            }
+          }
+
+          defaultlayer['featurecollection']['features'] = allfeatures;
           layers.push(defaultlayer);
         }
   
@@ -473,19 +495,22 @@ class Editor extends Component {
   }
 
   GeoJSONDownload = () => {
-    console.log("this.GeoJSONDownload");
-    var outputGeoJSON = {type: "FeatureCollection", features:[]};
     var layers = this.state.layers;
+    var OutputJSONFeatureCollections = []
 
-    // Push all layer properties into 'properties' field of each GeoJSON feature
+    // Push all layer properties into 'properties' field of each GeoJSON featurecollection
     // in order to create GeoJSON-standardised file
     for(let i = 0; i < layers.length; i++) {
       var properties = {};
       var currlayer = layers[i];
+      var featurecollection = JSON.parse(JSON.stringify(currlayer.featurecollection));
       properties.name = currlayer.name;
       properties.visible = currlayer.visible;
       properties.title = currlayer.title;
       properties.content = currlayer.content;
+      properties.iconinternal = currlayer.iconinternal;
+      properties.iconurl = currlayer.iconurl;
+
       for(let j = 0; j < currlayer.styles.length; j++) {
         if (currlayer.styles[j]['type'] === 'line') {
           properties['line-color'] = currlayer.styles[j]['paint']['line-color'];
@@ -496,15 +521,19 @@ class Editor extends Component {
           properties['fill-color'] = currlayer.styles[j]['paint']['fill-color'];
           properties['fill-opacity'] = currlayer.styles[j]['paint']['fill-opacity'];
         }
+        if (currlayer.styles[j]['type'] === 'symbol') {
+          properties['icon-size'] = currlayer.styles[j]['layout']['icon-size'];
+        }
       }
-      var featurecollection = currlayer.featurecollection.features;
-      for(let j = 0; j < featurecollection.length; j++) {
-        featurecollection[j]['properties'] = properties;
-        outputGeoJSON.features.push(featurecollection[j]);
-      }
+
+      var features = featurecollection['features'];
+      delete featurecollection['features'];
+      featurecollection['properties'] = properties;
+      featurecollection['features'] = features;
+      OutputJSONFeatureCollections.push(featurecollection);
     }
 
-    let GeoJSON = JSON.stringify(outputGeoJSON, null, 2);
+    let GeoJSON = JSON.stringify(OutputJSONFeatureCollections, null, 2);
     const anchor = document.createElement("a");
     anchor.href =  URL.createObjectURL(new Blob([GeoJSON], {type: "application/geo+json"}));
     const now = new Date();
@@ -597,16 +626,16 @@ class Editor extends Component {
                       <IonIcon icon={pushOutline} />
                     </IonButton>
                     <IonAlert
-                      header="Create layer for each feature?"
+                      header="Create separate layers for each feature collection?"
                       trigger="confirm-separatelayer"
                       buttons={[
                         {
-                          text: 'Merge into one layer',
+                          text: 'Merge',
                           role: 'merge',
                           handler: () => {this.GeoJSONUpload(false)},                          
                         },
                         {
-                          text: 'Layer for each feature',
+                          text: 'Separate layers',
                           role: 'separate',
                           handler: () => {this.GeoJSONUpload(true)},
                         },

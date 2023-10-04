@@ -106,7 +106,8 @@ class LayerProperties extends Component {
                                 <IonRange title="Change icon size" aria-label="Icon size" color="medium" value={this.props.state.iconsize} onIonChange={(e) => this.onChangeValue('iconsize', e)} ticks={false} snaps={true} min={0} max={100} step={1}></IonRange>
                             </div>
 
-                            <IonInput value={this.props.state.iconurl} label="External icon URL" labelPlacement="floating" name="iconurl" onIonBlur={this.onBlur} onIonChange={this.onInputChange} type="text" placeholder="Enter internet address of external icon to use" />
+                            {/* Comment out until we can get it working */}
+                            {/* <IonInput value={this.props.state.iconurl} label="External icon URL" labelPlacement="floating" name="iconurl" onIonBlur={this.onBlur} onIonChange={this.onInputChange} type="text" placeholder="Enter internet address of external icon to use" /> */}
 
                         </IonItem>
 
