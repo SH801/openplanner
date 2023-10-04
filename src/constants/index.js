@@ -10,6 +10,9 @@ console.log("Development machine", isDev());
 // URL of backend system
 export const API_URL = isDev() ? "http://localhost:80" : "";
 
+// URL of icons
+export const ICON_URL = isDev() ? "http://localhost:80/static/assets/icon/actionIcons/coloured/" : "/static/assets/icon/actionIcons/coloured/";
+
 // Default latitude
 export const DEFAULT_LAT = 53.9908; 
 

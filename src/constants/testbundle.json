@@ -2,6 +2,7 @@
     {
         "name": "Layer 1",
         "visible": true,
+        "title": "Sample title",
         "content": "<p>Some <b>sample text</b> for Layer 1</p>",
         "featurecollection": {
             "type": "FeatureCollection",
@@ -25,13 +26,39 @@
             {
               "type": "fill",
               "filter": [
-                "all"
+                "all",
+                [
+                    "==",
+                    "$type",
+                    "Polygon"
+                ]                
               ], 
               "id": "fill",
               "paint": {
                 "fill-color": "#35C03E",
                 "fill-opacity": 0.7
               }
+            },
+            {
+                "type": "symbol",
+                "filter": [
+                    "all",
+                    [
+                        "==",
+                        "$type",
+                        "Point"
+                    ]                
+                ],
+                "id": "symbol",
+                "layout": {
+                    "icon-image": "internal-default", 
+                    "icon-size": 0.1,
+                    "icon-anchor": "bottom",
+                    "icon-allow-overlap": true
+                },
+                "paint": {
+                    "icon-opacity": 1
+                }                
             }
         ]
     },
@@ -53,21 +80,47 @@
               ],
               "id": "line",
               "paint": {
-                "line-color": "red",
-                "line-width": 3,
+                "line-color": "#FF0000",
+                "line-width": 1,
                 "line-opacity": 1          
               }
             },
             {
               "type": "fill",
               "filter": [
-                "all"
+                "all",
+                [
+                    "==",
+                    "$type",
+                    "Polygon"
+                ]                
               ], 
               "id": "fill",
               "paint": {
-                "fill-color": "orange",
+                "fill-color": "#800000",
                 "fill-opacity": 1          
               }
+            },
+            {
+                "type": "symbol",
+                "filter": [
+                    "all",
+                    [
+                        "==",
+                        "$type",
+                        "Point"
+                    ]                
+                ],
+                "id": "symbol",
+                "layout": {
+                    "icon-image": "internal-default", 
+                    "icon-size": 0.1,
+                    "icon-anchor": "bottom",
+                    "icon-allow-overlap": true
+                },
+                "paint": {
+                    "icon-opacity": 1
+                }                
             }
         ]
     },
@@ -88,21 +141,47 @@
               ],
               "id": "line",
               "paint": {
-                "line-color": "purple",
-                "line-width": 3,
+                "line-color": "#800080",
+                "line-width": 2,
                 "line-opacity": 1          
               }
             },
             {
               "type": "fill",
               "filter": [
-                "all"
+                "all",
+                [
+                    "==",
+                    "$type",
+                    "Polygon"
+                ]                
               ], 
               "id": "fill",
               "paint": {
-                "fill-color": "red",
+                "fill-color": "#FF0000",
                 "fill-opacity": 1          
               }
+            },
+            {
+                "type": "symbol",
+                "filter": [
+                    "all",
+                    [
+                        "==",
+                        "$type",
+                        "Point"
+                    ]                
+                ],
+                "id": "symbol",
+                "layout": {
+                    "icon-image": "internal-default", 
+                    "icon-size": 0.1,
+                    "icon-anchor": "bottom",
+                    "icon-allow-overlap": true
+                },
+                "paint": {
+                    "icon-opacity": 1
+                }                
             }
         ]
     },
@@ -123,7 +202,7 @@
               ],
               "id": "line",
               "paint": {
-                "line-color": "orange",
+                "line-color": "#FF00FF",
                 "line-width": 3,
                 "line-opacity": 1          
               }
@@ -131,13 +210,39 @@
             {
               "type": "fill",
               "filter": [
-                "all"
+                "all",
+                [
+                    "==",
+                    "$type",
+                    "Polygon"
+                ]                
               ], 
               "id": "fill",
               "paint": {
-                "fill-color": "yellow",
+                "fill-color": "#FFFF00",
                 "fill-opacity": 1          
               }
+            },
+            {
+                "type": "symbol",
+                "filter": [
+                    "all",
+                    [
+                        "==",
+                        "$type",
+                        "Point"
+                    ]                
+                ],
+                "id": "symbol",
+                "layout": {
+                    "icon-image": "internal-default", 
+                    "icon-size": 0.1,
+                    "icon-anchor": "bottom",
+                    "icon-allow-overlap": true
+                },
+                "paint": {
+                    "icon-opacity": 1
+                }                
             }
         ]
     },
@@ -158,21 +263,47 @@
               ],
               "id": "line",
               "paint": {
-                "line-color": "purple",
-                "line-width": 3,
+                "line-color": "#800080",
+                "line-width": 4,
                 "line-opacity": 1          
               }
             },
             {
               "type": "fill",
               "filter": [
-                "all"
+                "all",
+                [
+                    "==",
+                    "$type",
+                    "Polygon"
+                ]                
               ], 
               "id": "fill",
               "paint": {
-                "fill-color": "blue",
+                "fill-color": "#0000FF",
                 "fill-opacity": 1          
               }
+            },
+            {
+                "type": "symbol",
+                "filter": [
+                    "all",
+                    [
+                        "==",
+                        "$type",
+                        "Point"
+                    ]                
+                ],
+                "id": "symbol",
+                "layout": {
+                    "icon-image": "internal-default", 
+                    "icon-size": 0.1,
+                    "icon-anchor": "bottom",
+                    "icon-allow-overlap": true
+                },
+                "paint": {
+                    "icon-opacity": 1
+                }                
             }
         ]
     },
@@ -193,21 +324,47 @@
               ],
               "id": "line",
               "paint": {
-                "line-color": "grey",
-                "line-width": 3,
+                "line-color": "#808080",
+                "line-width": 5,
                 "line-opacity": 1          
               }
             },
             {
               "type": "fill",
               "filter": [
-                "all"
+                "all",
+                [
+                    "==",
+                    "$type",
+                    "Polygon"
+                ]                
               ], 
               "id": "fill",
               "paint": {
-                "fill-color": "white",
+                "fill-color": "#FFFFFF",
                 "fill-opacity": 1          
               }
+            },
+            {
+                "type": "symbol",
+                "filter": [
+                    "all",
+                    [
+                        "==",
+                        "$type",
+                        "Point"
+                    ]                
+                ],
+                "id": "symbol",
+                "layout": {
+                    "icon-image": "internal-default", 
+                    "icon-size": 0.1,
+                    "icon-anchor": "bottom",
+                    "icon-allow-overlap": true
+                },
+                "paint": {
+                    "icon-opacity": 1
+                }                
             }
         ]
     }

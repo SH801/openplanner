@@ -43,6 +43,7 @@ input[type="color"] {
 }
 
 .coloricons {
+  padding-left: 10px;
   padding-right: 10px;
 }
 
@@ -57,7 +58,7 @@ input[type="color"] {
 }
 
 .editorClassName {
-  height: 300px!important;
+  height: 200px!important;
   overflow-y: scroll;
 }
 

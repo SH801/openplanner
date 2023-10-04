@@ -19,10 +19,11 @@ import {
   IonReorderGroup, 
   IonPage, 
   IonTitle, 
-  IonToolbar 
+  IonToolbar,
+  IonAlert,
 } from '@ionic/react';
 
-import { trashOutline, duplicateOutline, addOutline } from 'ionicons/icons';
+import { trashOutline, duplicateOutline, addOutline, pushOutline, downloadOutline } from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
 import { ContentState, convertToRaw } from 'draft-js';
 import { EditorState } from 'draft-js';
@@ -76,12 +77,16 @@ class Editor extends Component {
 
   }
 
-  
+  onVerticalStart = (ev) => {
+    ev.event.stopPropagation();
+  }
+
   onVerticalMove = (ev) => {
     requestAnimationFrame(() => {
       this.workingWidth = this.startingWidth - ev.deltaX;
       this.splitPane.style.setProperty('--side-width', `${this.workingWidth}px`);
     });
+    ev.event.stopPropagation();
   }
   
   onVerticalEnd = (ev) => {
@@ -94,6 +99,7 @@ class Editor extends Component {
     const gesture = createGesture({
       name: 'resize-menu',
       el: divider,
+      onStart: this.onVerticalStart,
       onEnd: this.onVerticalEnd,
       onMove: this.onVerticalMove,
     });    
@@ -173,6 +179,7 @@ class Editor extends Component {
       layers.splice(this.state.selected, 1);
       if (this.state.layerselected === this.state.selected) this.clearSelectedFeatures();
       this.setState({layers: layers, selected: null});  
+      this.mapdraw.deleteAll();
     }
   }
 
@@ -192,6 +199,7 @@ class Editor extends Component {
     let opacityline = 1;
     let opacityfill = 1;
     let widthline = 0;
+    let iconsize = 100;
 
     layerproperties.name = layer.name;
     if (layer.title === undefined) layerproperties.title = '';
@@ -220,6 +228,9 @@ class Editor extends Component {
         colorfill = layer.styles[i]['paint']['fill-color'];
         opacityfill = layer.styles[i]['paint']['fill-opacity'];
       }
+      if (layer.styles[i]['type'] === 'symbol') {
+        iconsize = 100 * layer.styles[i]['layout']['icon-size'];
+      }
     }
 
     layerproperties.colorline = colorline;
@@ -227,6 +238,7 @@ class Editor extends Component {
     layerproperties.opacityline = opacityline;
     layerproperties.opacityfill = opacityfill;
     layerproperties.widthline = widthline;
+    layerproperties.iconsize = iconsize;
 
     this.setState({selected: key, showlayerproperties: true, layerproperties: layerproperties});
   }
@@ -251,6 +263,10 @@ class Editor extends Component {
       currlayer.name = this.state.layerproperties.name;
       currlayer.title = this.state.layerproperties.title;
       currlayer.content = draftToHtml(convertToRaw(this.state.editorState.getCurrentContent()));
+      currlayer.iconurl = this.state.layerproperties.iconurl;
+      currlayer.iconinternal = this.state.layerproperties.iconinternal;
+      if (currlayer.iconinternal === "") currlayer.iconinternal = "default";
+
       for (let i = 0; i < currlayer.styles.length; i++) {
         if (currlayer.styles[i]['type'] === 'line') {
           currlayer.styles[i]['paint']['line-color'] = this.state.layerproperties.colorline;
@@ -260,6 +276,19 @@ class Editor extends Component {
         if (currlayer.styles[i]['type'] === 'fill') {
           currlayer.styles[i]['paint']['fill-color'] = this.state.layerproperties.colorfill;
           currlayer.styles[i]['paint']['fill-opacity'] = parseFloat(this.state.layerproperties.opacityfill);
+        }
+        if (currlayer.styles[i]['type'] === 'symbol') {
+          currlayer.styles[i]['layout']['icon-size'] = parseFloat(this.state.layerproperties.iconsize / 100);
+          if (currlayer.iconurl === "") {
+            currlayer.styles[i]['layout']['icon-image'] = "internal-" + currlayer.iconinternal;
+          } else {
+            this.state.map.loadImage(currlayer.iconurl, (error, image) => {
+                if (error) throw error;
+                this.state.map.addImage('external-' + this.state.selected.toString(), image);
+            });            
+            currlayer.styles[i]['layout']['icon-image'] = "external-" + this.state.selected.toString();
+          }
+          console.log(this.state.layerproperties.iconsize, currlayer);
         }
       }  
 
@@ -327,7 +356,8 @@ class Editor extends Component {
 
   onSetSelected = (layerId, featureId) => {
     this.setSelected(layerId);
-    this.mapdraw.changeMode('direct_select', {featureId: featureId});
+    var feature = this.mapdraw.get(featureId);
+    if (feature.geometry.type !== 'Point') this.mapdraw.changeMode('direct_select', {featureId: featureId});
   }
 
   setSelected = (index) => {
@@ -353,6 +383,134 @@ class Editor extends Component {
 
   deselectLayers = () => {
     this.setSelected(null);
+  }
+
+  GeoJSONUpload = (separatelayers) => {
+    this.setState({separatelayers: separatelayers});
+    document.getElementById('GeoJSONUpload').click();
+  }
+
+  onGeoJSONUpload = (event) => {
+    let defaultlayerText = JSON.stringify(require("../constants/defaultlayer.json"));
+
+    for (let file of event.target.files){
+      (new Blob([file])).text().then((GeoJSONContent) => {
+        const GeoJSON = JSON.parse(GeoJSONContent);
+        let maxid = this.state.idstart;
+        let features = GeoJSON.features;
+        let layers = this.state.layers;
+  
+        if (this.state.separatelayers) {
+          // Create separate layer for each feature
+          // This allows per-feature styling through layer-specific stylesheet
+          for(let i = 0; i < features.length; i++) {
+            let defaultlayer = JSON.parse(defaultlayerText);        
+            if (features[i]['properties']['name'] !== undefined) defaultlayer.name = features[i]['properties']['name'];
+            else defaultlayer.name = "Imported layer";
+            if (features[i]['properties']['visible'] !== undefined) defaultlayer.visible = features[i]['properties']['visible'];
+            if (features[i]['properties']['title'] !== undefined) defaultlayer.title = features[i]['properties']['title'];
+            if (features[i]['properties']['content'] !== undefined) defaultlayer.content = features[i]['properties']['content'];
+            // We assume line style is style[0] and feature style is style[1]
+            if (features[i]['properties']['line-color'] !== undefined) defaultlayer.styles[0]['paint']['line-color'] = features[i]['properties']['line-color'];
+            if (features[i]['properties']['line-width'] !== undefined) defaultlayer.styles[0]['paint']['line-width'] = features[i]['properties']['line-width'];
+            if (features[i]['properties']['line-opacity'] !== undefined) defaultlayer.styles[0]['paint']['line-opacity'] = features[i]['properties']['line-opacity'];
+            if (features[i]['properties']['fill-color'] !== undefined) defaultlayer.styles[1]['paint']['fill-color'] = features[i]['properties']['fill-color'];
+            if (features[i]['properties']['fill-opacity'] !== undefined) defaultlayer.styles[1]['paint']['fill-opacity'] = features[i]['properties']['fill-opacity'];
+            delete features[i]['properties']['name'];
+            delete features[i]['properties']['visible'];
+            delete features[i]['properties']['title'];
+            delete features[i]['properties']['content'];
+            delete features[i]['properties']['line-color'];
+            delete features[i]['properties']['line-width'];
+            delete features[i]['properties']['line-opacity'];
+            delete features[i]['properties']['fill-color'];
+            delete features[i]['properties']['fill-opacity'];
+            features[i]['id'] = maxid;
+            maxid++;        
+            defaultlayer['featurecollection']['features'] = [features[i]];
+            layers.push(defaultlayer);
+          }
+        } else {
+          if (features.length === 0) return;
+
+          // We take possible layer properties from first feature - though many properties may be blank
+          let defaultlayer = JSON.parse(defaultlayerText);        
+          if (features[0]['properties']['name'] !== undefined) defaultlayer.name = features[0]['properties']['name'];
+          else defaultlayer.name = "Imported layer";
+
+          if (features[0]['properties']['visible'] !== undefined) defaultlayer.visible = features[0]['properties']['visible'];
+          if (features[0]['properties']['title'] !== undefined) defaultlayer.title = features[0]['properties']['title'];
+          if (features[0]['properties']['content'] !== undefined) defaultlayer.content = features[0]['properties']['content'];
+          // We assume line style is style[0] and feature style is style[1]
+          if (features[0]['properties']['line-color'] !== undefined) defaultlayer.styles[0]['paint']['line-color'] = features[0]['properties']['line-color'];
+          if (features[0]['properties']['line-width'] !== undefined) defaultlayer.styles[0]['paint']['line-width'] = features[0]['properties']['line-width'];
+          if (features[0]['properties']['line-opacity'] !== undefined) defaultlayer.styles[0]['paint']['line-opacity'] = features[0]['properties']['line-opacity'];
+          if (features[0]['properties']['fill-color'] !== undefined) defaultlayer.styles[1]['paint']['fill-color'] = features[0]['properties']['fill-color'];
+          if (features[0]['properties']['fill-opacity'] !== undefined) defaultlayer.styles[1]['paint']['fill-opacity'] = features[0]['properties']['fill-opacity'];
+
+          for(let i = 0; i < features.length; i++) {
+            delete features[i]['properties']['name'];
+            delete features[i]['properties']['visible'];
+            delete features[i]['properties']['title'];
+            delete features[i]['properties']['content'];
+            delete features[i]['properties']['line-color'];
+            delete features[i]['properties']['line-width'];
+            delete features[i]['properties']['line-opacity'];
+            delete features[i]['properties']['fill-color'];
+            delete features[i]['properties']['fill-opacity'];  
+            features[i]['id'] = maxid;
+            maxid++;        
+          }
+
+          defaultlayer['featurecollection']['features'] = features;
+          layers.push(defaultlayer);
+        }
+  
+        this.setState({idstart: maxid, layers: layers});
+        document.getElementById('GeoJSONUpload').value = "";  
+      });
+    }        
+  }
+
+  GeoJSONDownload = () => {
+    console.log("this.GeoJSONDownload");
+    var outputGeoJSON = {type: "FeatureCollection", features:[]};
+    var layers = this.state.layers;
+
+    // Push all layer properties into 'properties' field of each GeoJSON feature
+    // in order to create GeoJSON-standardised file
+    for(let i = 0; i < layers.length; i++) {
+      var properties = {};
+      var currlayer = layers[i];
+      properties.name = currlayer.name;
+      properties.visible = currlayer.visible;
+      properties.title = currlayer.title;
+      properties.content = currlayer.content;
+      for(let j = 0; j < currlayer.styles.length; j++) {
+        if (currlayer.styles[j]['type'] === 'line') {
+          properties['line-color'] = currlayer.styles[j]['paint']['line-color'];
+          properties['line-width'] = currlayer.styles[j]['paint']['line-width'];
+          properties['line-opacity'] = currlayer.styles[j]['paint']['line-opacity']
+        }
+        if (currlayer.styles[j]['type'] === 'fill') {
+          properties['fill-color'] = currlayer.styles[j]['paint']['fill-color'];
+          properties['fill-opacity'] = currlayer.styles[j]['paint']['fill-opacity'];
+        }
+      }
+      var featurecollection = currlayer.featurecollection.features;
+      for(let j = 0; j < featurecollection.length; j++) {
+        featurecollection[j]['properties'] = properties;
+        outputGeoJSON.features.push(featurecollection[j]);
+      }
+    }
+
+    let GeoJSON = JSON.stringify(outputGeoJSON, null, 2);
+    const anchor = document.createElement("a");
+    anchor.href =  URL.createObjectURL(new Blob([GeoJSON], {type: "application/geo+json"}));
+    const now = new Date();
+    const timesuffix = now.toISOString().substring(0,19).replaceAll('T', ' ').replaceAll(':', '-');
+    anchor.download = "positivefarms - " + timesuffix + ".geojson";
+    anchor.click();
   }
 
   render() {
@@ -426,17 +584,64 @@ class Editor extends Component {
                 <IonToolbar>
                   <IonItem>
                   <IonButtons slot="start">
-                    <IonButton onClick={() => this.layerAdd()}>
-                      <IonIcon slot="icon-only" title="Add layer" icon={addOutline} />
+                    <IonButton title="Add layer" onClick={() => this.layerAdd()}>
+                      <IonIcon icon={addOutline} />
                     </IonButton>
-                    <IonButton onClick={() => this.layerDuplicate()}>
-                      <IonIcon slot="icon-only" title="Duplicate layer" icon={duplicateOutline} />
+                    {(this.state.selected !== null) ? (
+                    <IonButton title="Duplicate layer" onClick={() => this.layerDuplicate()}>
+                      <IonIcon icon={duplicateOutline} />
+                    </IonButton>
+                    ) : null}
+                    <IonButton title="Upload GeoJSON" id="confirm-separatelayer">
+                      <input style={{display:"none"}} id="GeoJSONUpload" type="file" onChange={this.onGeoJSONUpload} />
+                      <IonIcon icon={pushOutline} />
+                    </IonButton>
+                    <IonAlert
+                      header="Create layer for each feature?"
+                      trigger="confirm-separatelayer"
+                      buttons={[
+                        {
+                          text: 'Merge into one layer',
+                          role: 'merge',
+                          handler: () => {this.GeoJSONUpload(false)},                          
+                        },
+                        {
+                          text: 'Layer for each feature',
+                          role: 'separate',
+                          handler: () => {this.GeoJSONUpload(true)},
+                        },
+                      ]}
+                      onDidDismiss={null}
+                    ></IonAlert>
+
+
+                    <IonButton title="Download all layers to GeoJSON" onClick={() => this.GeoJSONDownload()}>
+                      <IonIcon icon={downloadOutline} />
                     </IonButton>
                   </IonButtons>
                   <IonButtons slot="end">
-                    <IonButton onClick={() => this.layerDelete()}>
-                      <IonIcon slot="icon-only" title="Delete layer" icon={trashOutline} />
-                    </IonButton>
+
+                  <IonButton id="confirm-delete">
+                    {(this.state.selected !== null) ? (<IonIcon title="Delete layer" icon={trashOutline} />) : null}
+                  </IonButton>
+                    <IonAlert
+                      header="Delete layer?"
+                      trigger="confirm-delete"
+                      buttons={[
+                        {
+                          text: 'Cancel',
+                          role: 'cancel',
+                          handler: null,                          
+                        },
+                        {
+                          text: 'OK',
+                          role: 'confirm',
+                          handler: () => {this.layerDelete()},
+                        },
+                      ]}
+                      onDidDismiss={null}
+                    ></IonAlert>
+
                   </IonButtons>
 
                   </IonItem>

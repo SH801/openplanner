@@ -35,6 +35,8 @@ export class MapContainer extends Component  {
       this.mapRef = React.createRef();
       this.popupRef = React.createRef();
   
+      this.icons = require("../constants/icons.json");
+
       this.state.idstart = props.idstart;
       this.state.lat = props.lat;
       this.state.lng = props.lng;
@@ -84,6 +86,16 @@ export class MapContainer extends Component  {
 
         var map = this.mapRef.current.getMap();
 
+        var loadicons = [...this.icons];
+        loadicons.push('default');
+        for(let i = 0; i < loadicons.length; i++) {
+            let icon = loadicons[i];
+            var url = process.env.PUBLIC_URL + '/icons/' + icon + ".png?cacheblock=true";
+            map.loadImage(url, (error, image) => {
+                if (error) throw error;
+                map.addImage('internal-' + icon, image);
+            });            
+        }
         this.props.onSetMap(map);
 
         map.addControl(this.props.mapdraw, 'top-left');  
@@ -138,6 +150,11 @@ export class MapContainer extends Component  {
                         "fill-opacity": 0.1
                     }
                 }
+                if (newstyle['type'] === 'symbol') {
+                    newstyle['paint'] = {
+                        "icon-opacity": 0.1
+                    }
+                }
             } else {
                 if (newstyle['type'] === 'line') {
                     newstyle['paint'] = {
@@ -152,24 +169,38 @@ export class MapContainer extends Component  {
                         "fill-opacity": 0
                     }
                 }
-
+                if (newstyle['type'] === 'symbol') {
+                    newstyle['paint'] = {
+                        "icon-opacity": 0
+                    }
+                }
             }
         }
-        if (newstyle['paint']['line-opacity'] !== undefined) {
-            newstyle['paint']['line-opacity'] = [
-                "case",
-                ["boolean", ["feature-state", "active"], false],
-                0,
-                newstyle['paint']['line-opacity']    
-            ]
-        }
-        if (newstyle['paint']['fill-opacity'] !== undefined) {
-            newstyle['paint']['fill-opacity'] = [
-                "case",
-                ["boolean", ["feature-state", "active"], false],
-                0,
-                newstyle['paint']['fill-opacity']    
-            ]
+        if (newstyle['paint'] !== undefined) {
+            if (newstyle['paint']['line-opacity'] !== undefined) {
+                newstyle['paint']['line-opacity'] = [
+                    "case",
+                    ["boolean", ["feature-state", "active"], false],
+                    0,
+                    newstyle['paint']['line-opacity']    
+                ]
+            }
+            if (newstyle['paint']['fill-opacity'] !== undefined) {
+                newstyle['paint']['fill-opacity'] = [
+                    "case",
+                    ["boolean", ["feature-state", "active"], false],
+                    0,
+                    newstyle['paint']['fill-opacity']    
+                ]
+            }
+            if (newstyle['paint']['icon-opacity'] !== undefined) {
+                newstyle['paint']['icon-opacity'] = [
+                    "case",
+                    ["boolean", ["feature-state", "active"], false],
+                    0,
+                    newstyle['paint']['icon-opacity']                        
+                ]
+            }
         }
 
         return {prevlayer: prevlayer, style: newstyle};
