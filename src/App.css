@@ -75,6 +75,11 @@ input[type="color"] {
   padding-right: 10px;
 }
 
+#cameraproperties-modal {
+  --max-width: 500px!important;
+
+}
+
 #siteproperties-modal {
   --max-width: 400px!important;
   --max-height: 300px!important;

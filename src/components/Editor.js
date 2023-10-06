@@ -36,9 +36,6 @@ import {
   settingsOutline,
   exitOutline,
   bugOutline,
-  playOutline,
-  pauseOutline,
-  stopOutline,
   play,
   pause,
   stop
@@ -53,29 +50,16 @@ import { Toaster } from 'react-hot-toast';
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import queryString from "query-string";
 import { v4 as uuidv4 } from 'uuid';
-import { Timeline, TimelineState } from '@xzdarcy/react-timeline-editor';
+import { Timeline } from '@xzdarcy/react-timeline-editor';
 
 import { EXTERNAL_HOMEPAGE } from "../constants";
+import CameraProperties from './CameraProperties';
 import SiteProperties from './SiteProperties';
 import Layer from './Layer';
-import AnimationLayer from './AnimationLayer';
 import LayerProperties from './LayerProperties';
 import MapContainer from './MapContainer';
 
 export const isDev = () =>  !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
-
-
-const mockEffect = {
-effect0: {
-  id: "effect0",
-  name: "效果0",
-},
-effect1: {
-  id: "effect1",
-  name: "效果1",
-},
-};
-
 
 class Editor extends Component {
 
@@ -95,6 +79,11 @@ class Editor extends Component {
     editorState: null,
     siteanimateshow: false,
     animationdata: [],
+    animationeffects: {effect0: {id: "effect0", name: "Layer shown"}},
+    camerapositions: {},
+    cameraproperties: {},
+    camerapropertiesshow: false,
+    cameratime: null,
   }
 
   constructor(props) {
@@ -127,11 +116,14 @@ class Editor extends Component {
   }
 
   updateAnimationData = (layers) => {
-    var animationdata = [];
+    var animationdata = [];    
     var actions = {};
     for(let i = 0; i < this.state.animationdata.length; i++) {
       actions[this.state.animationdata[i].id] = this.state.animationdata[i];
     }
+    if ('camera' in actions) animationdata.push(actions['camera']);
+    else animationdata.push({id: 'camera', actions: []});
+
     for(let i = 0; i < layers.length; i++) {
       var layerid = layers[i].id;
       if (layerid in actions) animationdata.push(actions[layerid]);
@@ -147,26 +139,37 @@ class Editor extends Component {
 
   addAnimationData = (e, row, time) => {
     var animationdata = this.state.animationdata;
-    var newAction = {
-      id: this.getUniqueID(),
-      start: time,
-      end: time + 0.5,
-      effectId: "effect0"
-    } 
-    for(let i = 0; i < animationdata.length; i++) {
-      // If time is within existing action then remove it
-      if (animationdata[i].id == row.id) {
-        var existingsegment = false;
-        var newactions = [];
-        for(let j = 0; j < animationdata[i].actions.length; j++) {
-          if ((time > animationdata[i].actions[j].start) && 
-              (time < animationdata[i].actions[j].end)) existingsegment = true;
-          else newactions.push(animationdata[i].actions[j]);
-        }
-        if (!existingsegment) newactions.push(newAction);
-        animationdata[i].actions = newactions;
+    if (row.id === 'camera') {
+      // Camera actions are always in first row
+      var cameraactions = animationdata[0].actions;
+      var effectId = null;
+      for(let i = 0; i < cameraactions.length; i++) {
+        if ((time > cameraactions[i].start) && 
+            (time < cameraactions[i].end)) effectId = cameraactions[i].effectId;
       }
-      
+      this.setState({cameratime: time});
+      this.cameraPropertiesShow(effectId);
+    } else {
+      var newAction = {
+        id: this.getUniqueID(),
+        start: time,
+        end: time + 0.5,
+        effectId: "effect0"
+      } 
+      for(let i = 0; i < animationdata.length; i++) {
+        // If time is within existing action then remove it
+        if (animationdata[i].id === row.id) {
+          var existingsegment = false;
+          var newactions = [];
+          for(let j = 0; j < animationdata[i].actions.length; j++) {
+            if ((time > animationdata[i].actions[j].start) && 
+                (time < animationdata[i].actions[j].end)) existingsegment = true;
+            else newactions.push(animationdata[i].actions[j]);
+          }
+          if (!existingsegment) newactions.push(newAction);
+          animationdata[i].actions = newactions;
+        }      
+      }
     }
     this.setState({animationdata: animationdata});
   }
@@ -216,22 +219,105 @@ class Editor extends Component {
     this.setState({siteanimateshow: !this.state.siteanimateshow});
   }
 
-  planSave = (redirect) => {
+  cameraPropertiesNow = () => {
     var center = this.state.map.getCenter();
+    return {
+      lat: center.lat,
+      lng: center.lng,
+      zoom: this.state.map.getZoom(),
+      pitch: this.state.map.getPitch(),
+      bearing: this.state.map.getBearing()
+    };
+  }
+
+  cameraPropertiesShow = (effectId) => {
+    var cameraproperties = {};
+    if (effectId === null) {
+      cameraproperties = this.cameraPropertiesNow();
+      cameraproperties['effectId'] = null;
+    }
+    else {
+      cameraproperties = this.state.camerapositions[effectId];
+    }
+    this.setState({cameraproperties: cameraproperties, camerapropertiesshow: true});
+  }
+
+  cameraPropertiesUseCurrent = () => {
+    var cameraproperties = this.cameraPropertiesNow();
+    cameraproperties.effectId = this.state.cameraproperties.effectId;
+    this.setState({cameraproperties: cameraproperties});
+  }
+
+  cameraPropertiesSet = (event) => {
+    var name = event.target.name;
+    var value = event.target.value;
+    if (event.target.nodeName === 'ION-TOGGLE') value = !this.state.cameraproperties[name];
+    var cameraproperties = {...this.state.cameraproperties};
+    cameraproperties[name] = value;
+    this.setState({cameraproperties: cameraproperties});
+  }
+
+  cameraPropertiesSubmit = () => {
+    var animationdata = this.state.animationdata;
+    var cameraactions = animationdata[0].actions;
+    var animationeffects = this.state.animationeffects;
+    var camerapositions = this.state.camerapositions;
+    var cameraproperties = this.state.cameraproperties;
+    if (this.state.cameraproperties['effectId'] === null) {
+      var cameraanimationid = this.getUniqueID();
+      cameraproperties.effectId = cameraanimationid;
+      animationeffects[cameraanimationid] = {id: cameraanimationid, name: "Camera animation"}
+      camerapositions[cameraanimationid] = cameraproperties;
+      var newAction = {
+        id: cameraanimationid,
+        start: this.state.cameratime,
+        end: this.state.cameratime + 0.5,
+        effectId: cameraanimationid
+      } 
+      cameraactions.push(newAction);
+      animationdata[0].actions = cameraactions;
+      this.setState({animationdata: animationdata, animationeffects: animationeffects, camerapositions: camerapositions});
+    }
+    else {
+      // Action already exists so just need to modify camera position
+      camerapositions[this.state.cameraproperties['effectId']] = cameraproperties;
+      this.setState({camerapositions: camerapositions});
+    }
+  }
+
+  cameraPropertiesDelete = () => {
+    var effectId = this.state.cameraproperties.effectId;
+    if (effectId !== null) {
+      var animationdata = this.state.animationdata;
+      var cameraactions = animationdata[0].actions;
+      var animationeffects = this.state.animationeffects;
+      var camerapositions = this.state.camerapositions;
+      delete animationeffects[effectId];
+      delete camerapositions[effectId];
+      var newcameraactions = []
+      for(let i = 0; i < cameraactions.length; i++) {
+        if (cameraactions[i].id !== effectId) newcameraactions.push(cameraactions[i]);
+      }
+      animationdata[0].actions = newcameraactions;
+      this.setState({animationdata: animationdata, animationeffects: animationeffects, camerapositions: camerapositions});
+    }
+    this.cameraPropertiesClose();
+  }
+
+  cameraPropertiesClose = () => {
+    this.setState({camerapropertiesshow: false});
+  }
+
+  planSave = (redirect) => {
+    var data = this.cameraPropertiesNow();
+    data.satellite = this.props.global.satellite;
+    data.layers = this.state.layers;
     var plan = {
       id: this.props.global.id,
       name: this.props.global.name,
       entityid: this.props.global.entityid,
       public: this.props.global.public,
-      data: {
-        zoom: this.state.map.getZoom(),
-        bearing: this.state.map.getBearing(),
-        pitch: this.state.map.getPitch(),
-        lat: center.lat,
-        lng: center.lng,
-        satellite: this.props.global.satellite,
-        layers: this.state.layers
-      }
+      data: data
     };
     this.props.savePlan(plan).then(() => {
       toast.success('Plan saved');
@@ -275,6 +361,8 @@ class Editor extends Component {
     console.log("mapbox-gl-draw", this.mapdraw.getAll());
     console.log("featuresselected", this.state.featuresselected);
     console.log("animationdata", this.state.animationdata);
+    console.log("animationeffects", this.state.animationeffects);
+    console.log("camerapositions", this.state.camerapositions);
   }
 
   onSetMap = (map) => {
@@ -853,6 +941,15 @@ class Editor extends Component {
                 set={this.sitePropertiesSet} />
 
 
+          <CameraProperties 
+                isOpen={this.state.camerapropertiesshow} 
+                close={this.cameraPropertiesClose} 
+                state={this.state.cameraproperties} 
+                set={this.cameraPropertiesSet} 
+                cameraPropertiesSubmit={this.cameraPropertiesSubmit} 
+                cameraPropertiesUseCurrent={this.cameraPropertiesUseCurrent} 
+                cameraPropertiesDelete={this.cameraPropertiesDelete} />
+
           <IonSplitPane when={true} contentId="mainpane">
 
             <div id="mainpane" style={{ height: "100vh", position: "relative" }}>
@@ -913,6 +1010,27 @@ class Editor extends Component {
 
                         </div>
 
+                        <div style={{
+                            height: "31px",
+                            padding: "0px",
+                            width: "100%",
+                            display: "flex",
+                            justifyContent: "left",
+                            alignItems: "middle",
+                            color: "white",
+                            fontSize: "80%",
+                            borderBottom: "1px solid #333" }} >
+                            <div className="text" style={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignContent: "center",
+                              flexDirection: "column",
+                              paddingLeft: "10px"
+                            }}>
+                              Camera
+                            </div>
+                          </div>
+
                       {this.state.layers.map((layer, index) => {
                         return (
                           <div style={{
@@ -946,7 +1064,7 @@ class Editor extends Component {
                         flex: "1 1 auto"
                       }}
                       editorData={this.state.animationdata}
-                      effects={mockEffect}
+                      effects={this.state.animationeffects}
                       onScroll={({ scrollTop }) => {this.tracksRef.current.scrollTop = scrollTop;}}
                       onDoubleClickRow={(e, {row, time}) => {this.addAnimationData(e, row, time)}}
                     />
