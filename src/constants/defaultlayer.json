@@ -13,7 +13,7 @@
           ],
           "id": "line",
           "paint": {
-            "line-color": "black",
+            "line-color": "#000000",
             "line-width": 1,
             "line-opacity": 1
           }
@@ -30,7 +30,7 @@
           ], 
           "id": "fill",
           "paint": {
-            "fill-color": "white",
+            "fill-color": "#FFFFFF",
             "fill-opacity": 0.5
           }
         },

@@ -1,0 +1,27 @@
+{
+    "duration": 500,
+    "channels": [
+        {
+            "id": "c7a594e8309f493997f21af393a1ff26",
+            "actions": [
+                {
+                    "id": "c7a594e8309f493997f21af393a1ff26_1",
+                    "start": 0,
+                    "end": 1,
+                    "effectId": "effect0"
+                }
+            ]
+        },
+        {
+            "id": "bdda0d1c920344e7ba119f144ce300e4",
+            "actions": [
+                {
+                    "id": "bdda0d1c920344e7ba119f144ce300e4_1",
+                    "start": 1,
+                    "end": 2,
+                    "effectId": "effect0"
+                }
+            ]
+        }
+    ]
+}

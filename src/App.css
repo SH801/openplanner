@@ -37,6 +37,22 @@
   }
 }
 
+.timeline-editor-edit-row {
+  height: 33px;
+  border-bottom: 1px solid #333;
+}
+
+.timeline-editor,
+.animation-tracks {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.timeline-editor::-webkit-scrollbar,
+.animation-tracks::-webkit-scrollbar { 
+  display: none;  /* Safari and Chrome */
+}
+
 .maplibregl-canvas {
   background-color: #87b6c2;
 }

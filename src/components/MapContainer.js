@@ -76,7 +76,6 @@ export class MapContainer extends Component  {
       scrollWheelZoom: true,	
       selectedfeature: null,
       selectedlayer: null,
-      idstart: null,
       interactiveLayerIds: [],
       mode: null,
     }
@@ -92,7 +91,6 @@ export class MapContainer extends Component  {
 
         this.pitchtoggle = new PitchToggle({mapcontainer: this, pitch: 70});
 
-        this.state.idstart = props.idstart;
         this.state.lat = props.lat;
         this.state.lng = props.lng;
         this.state.zoom = props.zoom;  
@@ -161,20 +159,20 @@ export class MapContainer extends Component  {
         document.getElementsByClassName('mapboxgl-ctrl-group')[0].classList.add('maplibregl-ctrl-group');                      
 
         map.on('draw.modechange', (mode) => {
-            console.log("modechange");
-            if (this.props.selected === null) this.props.selectDefaultLayer();
+            // console.log("modechange", mode);
             this.setState({mode: mode.mode})
+        });
+        map.on('draw.delete', (data) => {
+            this.props.onDataChange(data, this.state.mode);
         });
         map.on('draw.selectionchange', (data) => {this.props.onSelectionChange(data)});    
         map.on('draw.create', (data) => {
-            // Replace string id with numerical id so we can setFeatureState on it
+            // Add string id to properties so we can use setFeatureState via promoteId
             var feature = data.features[0];
+            feature.properties['id'] = feature.id;
             this.props.mapdraw.delete(feature.id);
-            var newId = this.state.idstart + 1;
-            feature.id = newId;
             this.props.mapdraw.add(feature);
-            this.setState({idstart: newId});
-            this.props.onDataChange(data);
+            this.props.onDataChange(data, this.state.mode);
         });
     }
   
@@ -267,7 +265,11 @@ export class MapContainer extends Component  {
     }
   
     onClick = (event) => {
-        if (this.state.mode !== 'draw_polygon') {
+        // Don't select features while drawing new features
+        if (["draw_point", "draw_line_string", "draw_polygon"].includes(this.state.mode)) {
+            return true;
+        } 
+        else {
             if (event.features.length > 0) {
                 var featureId = event.features[0].id;
                 var layerId = this.getLayerFromFeatureId(featureId);
@@ -330,7 +332,7 @@ export class MapContainer extends Component  {
                 {this.props.layers.map((layer, index) => {
                     return (
                         <div key={index.toString()}>
-                            <Source key={index} id={index.toString()} type="geojson" data={layer.featurecollection}>
+                            <Source key={index} id={index.toString()} promoteId="id" type="geojson" data={layer.featurecollection}>
                                 {layer.styles.map((style, styleindex) => {
                                     var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
                                     return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);

@@ -31,8 +31,17 @@ import {
   duplicateOutline, 
   addOutline, 
   pushOutline, 
-  downloadOutline, 
-  settingsOutline 
+  downloadOutline,
+  videocamOutline, 
+  settingsOutline,
+  exitOutline,
+  bugOutline,
+  playOutline,
+  pauseOutline,
+  stopOutline,
+  play,
+  pause,
+  stop
 } from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
 import { ContentState, convertToRaw } from 'draft-js';
@@ -43,11 +52,30 @@ import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import queryString from "query-string";
+import { v4 as uuidv4 } from 'uuid';
+import { Timeline, TimelineState } from '@xzdarcy/react-timeline-editor';
 
+import { EXTERNAL_HOMEPAGE } from "../constants";
 import SiteProperties from './SiteProperties';
 import Layer from './Layer';
+import AnimationLayer from './AnimationLayer';
 import LayerProperties from './LayerProperties';
 import MapContainer from './MapContainer';
+
+export const isDev = () =>  !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+
+
+const mockEffect = {
+effect0: {
+  id: "effect0",
+  name: "效果0",
+},
+effect1: {
+  id: "effect1",
+  name: "效果1",
+},
+};
+
 
 class Editor extends Component {
 
@@ -59,20 +87,24 @@ class Editor extends Component {
     mapdraw: null,
     featuresselected: [],
     layerselected: null,
-    idstart: 0,
     layerproperties: {},
     layerpropertiesshow: false,
     siteproperties: {},
     sitepropertiesshow: false,
     sitepropertiescancel: true,
     editorState: null,
+    siteanimateshow: false,
+    animationdata: [],
   }
 
   constructor(props) {
     super(props);
+    this.timelineRef = React.createRef();
+    this.tracksRef = React.createRef();
     this.workingWidth = 300;
     this.startingWidth = 300;
     this.state.layers = [JSON.parse(JSON.stringify(require("../constants/defaultlayer.json")))];
+    this.animation = require("../constants/testanimation.json");
     this.state.editorState = EditorState.createEmpty();
     this.mapdrawStyles = require("../constants/mapdrawstyles.json");
     this.mapdraw = new MapboxDraw({
@@ -86,6 +118,67 @@ class Editor extends Component {
       userProperties: true,
       styles: this.mapdrawStyles
     });
+
+  }
+
+  getUniqueID = () => {
+    let id = uuidv4();
+    return id.replaceAll('-', '');
+  }
+
+  updateAnimationData = (layers) => {
+    var animationdata = [];
+    var actions = {};
+    for(let i = 0; i < this.state.animationdata.length; i++) {
+      actions[this.state.animationdata[i].id] = this.state.animationdata[i];
+    }
+    for(let i = 0; i < layers.length; i++) {
+      var layerid = layers[i].id;
+      if (layerid in actions) animationdata.push(actions[layerid]);
+      else animationdata.push({id: layerid, actions: []});
+    }
+    this.setState({animationdata: animationdata});
+  }
+
+  setAnimationData = (animationdata) => {
+    console.log(animationdata);
+    this.setState({animationdata: animationdata});
+  }
+
+  addAnimationData = (e, row, time) => {
+    var animationdata = this.state.animationdata;
+    var newAction = {
+      id: this.getUniqueID(),
+      start: time,
+      end: time + 0.5,
+      effectId: "effect0"
+    } 
+    for(let i = 0; i < animationdata.length; i++) {
+      // If time is within existing action then remove it
+      if (animationdata[i].id == row.id) {
+        var existingsegment = false;
+        var newactions = [];
+        for(let j = 0; j < animationdata[i].actions.length; j++) {
+          if ((time > animationdata[i].actions[j].start) && 
+              (time < animationdata[i].actions[j].end)) existingsegment = true;
+          else newactions.push(animationdata[i].actions[j]);
+        }
+        if (!existingsegment) newactions.push(newAction);
+        animationdata[i].actions = newactions;
+      }
+      
+    }
+    this.setState({animationdata: animationdata});
+  }
+
+  getAnimationEnd = () => {
+    var end = 0;
+    var animationdata = this.state.animationdata;
+    for(let i = 0; i < animationdata.length; i++) {
+      for(let j = 0; j < animationdata[i].actions.length; j++)
+        if (animationdata[i].actions[j].end > end) end = animationdata[i].actions[j].end;
+    }
+    return end;
   }
 
   initialSitePropertiesShow = () => {
@@ -119,7 +212,11 @@ class Editor extends Component {
     this.setState({sitepropertiesshow: false});
   }
 
-  siteSave = () => {
+  siteAnimateToggle = () => {
+    this.setState({siteanimateshow: !this.state.siteanimateshow});
+  }
+
+  planSave = (redirect) => {
     var center = this.state.map.getCenter();
     var plan = {
       id: this.props.global.id,
@@ -138,6 +235,9 @@ class Editor extends Component {
     };
     this.props.savePlan(plan).then(() => {
       toast.success('Plan saved');
+      if (redirect) {
+        document.location = EXTERNAL_HOMEPAGE;
+      }
     })
   }
 
@@ -170,15 +270,11 @@ class Editor extends Component {
     gesture.enable(true);
   }
 
-  getIdStart = (layers) => {
-    var maxId = 0;
-    for(let i = 0; i < layers.length; i++) {
-      var features = layers[i]['featurecollection']['features'];
-      for(let j = 0; j < features.length; j++) {
-        if (features[j]['id'] > maxId) maxId = features[j]['id'];
-      }
-    }
-    return (maxId + 1);
+  dumpData = () => {
+    console.log("this.state.layers", this.state.layers);
+    console.log("mapbox-gl-draw", this.mapdraw.getAll());
+    console.log("featuresselected", this.state.featuresselected);
+    console.log("animationdata", this.state.animationdata);
   }
 
   onSetMap = (map) => {
@@ -194,9 +290,9 @@ class Editor extends Component {
         this.props.fetchPlan(params['planid']).then(() => {
           let layers = [];
           if ('layers' in this.props.global.data) layers = this.props.global.data.layers;
-          var idstart = this.getIdStart(layers);
-          this.setState({idstart: idstart, layers: layers});
-      
+          this.setState({layers: layers});
+          this.updateAnimationData(layers);
+
           if (this.props.global.entityid === null) {
             this.initialSitePropertiesShow();
             if ('zoom' in this.props.global.data) map.jumpTo({zoom: this.props.global.data.zoom});
@@ -240,7 +336,6 @@ class Editor extends Component {
     });
   }
 
-  
   onSelectionChange = (data) => {
     this.clearSelectedFeatures();
     if ((data.features.length > 0) && (this.state.selected !== null)) {
@@ -254,7 +349,7 @@ class Editor extends Component {
       }
       this.setState({layerselected: this.state.selected.toString(), featuresselected: featuresselected});
     }  
-    this.onDataChange(data);    
+    this.onDataChange(data, null);    
   }
 
   clearSelectedFeatures = () => {
@@ -269,26 +364,84 @@ class Editor extends Component {
     }
   }
 
+  onDataChange = (data, mode) => {
+    if (this.state.selected !== null) {
+      var featurecollection = this.mapdraw.getAll();
+      var layers = [...this.state.layers];
+      layers[this.state.selected]['featurecollection'] = featurecollection;
+      this.setState({layers: layers});
+    } else {
+      if (["draw_point", "draw_line_string", "draw_polygon"].includes(mode)) {
+        this.selectDefaultLayer();
+        this.mapdraw.add(data.features[0]);
+      }
+    }
+  }
+
+  onSetSelected = (layerId, featureId) => {
+    this.setSelected(layerId);
+    var feature = this.mapdraw.get(featureId);
+    if (feature.geometry.type !== 'Point') this.mapdraw.changeMode('simple_select', {featureIds: [featureId]});
+  }
+
+  setSelected = (index) => {
+   this.clearSelectedFeatures();
+    if (this.state.selected !== null) {
+      var featurecollection = this.mapdraw.getAll();
+      var layers = [...this.state.layers];
+      layers[this.state.selected]['featurecollection'] = featurecollection;
+      this.setState({layers: layers});
+    }
+    if (index === null) {
+      this.mapdraw.deleteAll();
+    } else {
+      this.mapdraw.set(this.state.layers[index]['featurecollection']);
+    }
+    this.setState({selected: index});
+  }
+
+  selectDefaultLayer = (mode) => {
+    if (this.state.layers.length === 0) {
+      var layers = this.state.layers;
+      layers.push(JSON.parse(JSON.stringify(require("../constants/defaultlayer.json"))));
+      this.setState({layers: layers});
+    }
+    if (this.state.selected === null) this.setSelected(0);
+  }
+
+  // Layer-specific UI
+
+  mapdrawDeactivate = () => {
+    this.mapdraw.changeMode('simple_select', {featureIds: []});
+    this.setSelected(this.state.selected);
+  }
+
   layerAdd = (event) => {
+    this.mapdrawDeactivate();
     var layers = [...this.state.layers];
     var defaultlayer = require("../constants/defaultlayer.json");
+    defaultlayer.id = this.getUniqueID();
     layers.push({...defaultlayer});
-    this.setState({layers: layers});
+    this.setState({layers: layers});    
+    this.updateAnimationData(layers);
   }
 
   layerDuplicate = (event) => {
+    this.mapdrawDeactivate();
     var layers = [...this.state.layers];
     if (this.state.selected !== null) {
       var layer = JSON.parse(JSON.stringify(layers[this.state.selected]));
       layer.name = "Copy of " + layer.name;
-      var maxId = this.getIdStart(layers);
+      layer.id = this.getUniqueID();
       for(let i = 0; i < layer.featurecollection.features.length; i++) {
-        maxId += 1;
-        layer.featurecollection.features[i]['id'] = maxId;
+        var featureid = this.getUniqueID();
+        layer.featurecollection.features[i]['id'] = featureid;
+        layer.featurecollection.features[i]['properties']['id'] = featureid;
       }
 
       layers.push(layer);
-      this.setState({layers: layers, idstart: maxId});
+      this.setState({layers: layers});
+      this.updateAnimationData(layers);      
       // this.setSelected(layers.length - 1);
     }
   }
@@ -301,14 +454,6 @@ class Editor extends Component {
       this.setState({layers: layers, selected: null});  
       this.mapdraw.deleteAll();
     }
-  }
-
-  convertColorAndOpacity = (color, opacity) => {
-    return color;
-  }
-
-  convertAlphaColor = (color) => {
-    return color;
   }
 
   layerEdit = (key) => {
@@ -420,7 +565,9 @@ class Editor extends Component {
   }
 
   handleReorder = (event) => {
-    this.setState({layers: event.detail.complete(this.state.layers)});
+    var newlayers = event.detail.complete(this.state.layers);    
+    this.setState({layers: newlayers});
+    this.updateAnimationData(newlayers);
     if (this.state.selected !== null) {
       if (event.detail.from === this.state.selected) this.setState({selected: event.detail.to});
       else {
@@ -461,46 +608,6 @@ class Editor extends Component {
     this.setState({layers: existinglayers});
   }
 
-  onDataChange = (data) => {
-    if (this.state.selected !== null) {
-      var featurecollection = this.mapdraw.getAll();
-      var layers = [...this.state.layers];
-      layers[this.state.selected]['featurecollection'] = featurecollection;
-      this.setState({layers: layers});
-    }
-  }
-
-  onSetSelected = (layerId, featureId) => {
-    this.setSelected(layerId);
-    var feature = this.mapdraw.get(featureId);
-    if (feature.geometry.type !== 'Point') this.mapdraw.changeMode('direct_select', {featureId: featureId});
-  }
-
-  setSelected = (index) => {
-    this.clearSelectedFeatures();
-    if (this.state.selected !== null) {
-      var featurecollection = this.mapdraw.getAll();
-      var layers = [...this.state.layers];
-      layers[this.state.selected]['featurecollection'] = featurecollection;
-      this.setState({layers: layers});
-    }
-    if (index === null) {
-      this.mapdraw.deleteAll();
-    } else {
-      this.mapdraw.set(this.state.layers[index]['featurecollection']);
-    }
-    this.setState({selected: index});
-  }
-
-  selectDefaultLayer = () => {
-    if (this.state.layers.length === 0) {
-      var layers = this.state.layers;
-      layers.push(JSON.parse(JSON.stringify(require("../constants/defaultlayer.json"))));
-      this.setState({layers: layers});
-    }
-    if (this.state.selected === null) this.setState({selected: 0});
-  }
-
   onClick = (event, key) => {
     this.setSelected(key);
     event.stopPropagation();
@@ -525,7 +632,6 @@ class Editor extends Component {
     for (let file of event.target.files){
       (new Blob([file])).text().then((GeoJSONContent) => {
         let featurecollections = JSON.parse(GeoJSONContent);
-        let maxid = this.state.idstart;
         // If single featurecollections, convert to array of featurecollections
         if (!Array.isArray(featurecollections)) featurecollections = [featurecollections];        
         let layers = this.state.layers;
@@ -534,7 +640,9 @@ class Editor extends Component {
           // Create separate layer for each featurecollection
           // This allows per-featurecollection styling through layer-specific stylesheet
           for(let i = 0; i < featurecollections.length; i++) {
-            let defaultlayer = JSON.parse(defaultlayerText);        
+            let defaultlayer = JSON.parse(defaultlayerText);      
+            if (featurecollections[i]['properties']['id'] !== undefined) defaultlayer.id = featurecollections[i]['properties']['id'];
+            else defaultlayer.id = this.getUniqueID(); 
             if (featurecollections[i]['properties']['name'] !== undefined) defaultlayer.name = featurecollections[i]['properties']['name'];
             else defaultlayer.name = "Imported layer";
             if (featurecollections[i]['properties']['visible'] !== undefined) defaultlayer.visible = featurecollections[i]['properties']['visible'];
@@ -552,6 +660,7 @@ class Editor extends Component {
               defaultlayer.styles[2]['layout']['icon-image'] = "internal-" + featurecollections[i]['properties']['iconinternal'];
             }
             // Need to implement iconurl so it loads image on layer with correct layer id
+            delete featurecollections[i]['properties']['id'];
             delete featurecollections[i]['properties']['name'];
             delete featurecollections[i]['properties']['visible'];
             delete featurecollections[i]['properties']['title'];
@@ -564,8 +673,10 @@ class Editor extends Component {
             delete featurecollections[i]['properties']['icon-size'];
             delete featurecollections[i]['properties']['iconinternal'];
             for(let j = 0; j < featurecollections[i].features.length; j++) {
-              featurecollections[i].features[j]['id'] = maxid;
-              maxid++;          
+              if (!('properties' in featurecollections[i].features[j])) featurecollections[i].features[j]['properties'] = {};
+              let featureid = this.getUniqueID();
+              featurecollections[i].features[j]['id'] = featureid;
+              featurecollections[i].features[j]['properties']['id'] = featureid;                        
             }
             defaultlayer['featurecollection']['features'] = featurecollections[i].features;
             layers.push(defaultlayer);
@@ -577,7 +688,8 @@ class Editor extends Component {
           var allfeatures = [];      
           if (featurecollections[0]['properties']['name'] !== undefined) defaultlayer.name = featurecollections[0]['properties']['name'];
           else defaultlayer.name = "Imported layer";
-
+          if (featurecollections[0]['properties']['id'] !== undefined) defaultlayer.id = featurecollections[0]['properties']['id'];
+          else defaultlayer.id = this.getUniqueID(); 
           if (featurecollections[0]['properties']['visible'] !== undefined) defaultlayer.visible = featurecollections[0]['properties']['visible'];
           if (featurecollections[0]['properties']['title'] !== undefined) defaultlayer.title = featurecollections[0]['properties']['title'];
           if (featurecollections[0]['properties']['content'] !== undefined) defaultlayer.content = featurecollections[0]['properties']['content'];
@@ -594,6 +706,7 @@ class Editor extends Component {
           }
 
           for(let i = 0; i < featurecollections.length; i++) {
+            delete featurecollections[i]['properties']['id'];
             delete featurecollections[i]['properties']['name'];
             delete featurecollections[i]['properties']['visible'];
             delete featurecollections[i]['properties']['title'];
@@ -606,8 +719,10 @@ class Editor extends Component {
             delete featurecollections[i]['properties']['icon-size'];
             delete featurecollections[i]['properties']['iconinternal'];
             for(let j = 0; j < featurecollections[i].features.length; j++) {
-              featurecollections[i].features[j]['id'] = maxid;
-              maxid++;   
+              if (!('properties' in featurecollections[i].features[j])) featurecollections[i].features[j]['properties'] = {};
+              let featureid = this.getUniqueID();
+              featurecollections[i].features[j]['id'] = featureid;
+              featurecollections[i].features[j]['properties']['id'] = featureid;                        
               allfeatures.push(featurecollections[i].features[j]);       
             }
           }
@@ -616,7 +731,7 @@ class Editor extends Component {
           layers.push(defaultlayer);
         }
   
-        this.setState({idstart: maxid, layers: layers});
+        this.setState({layers: layers});
         document.getElementById('GeoJSONUpload').value = "";  
       });
     }        
@@ -670,8 +785,11 @@ class Editor extends Component {
     anchor.click();
   }
 
-  render() {
+  setData = (event) => {
+    console.log(event);
+  }
 
+  render() {
     return (
       <>
 
@@ -691,9 +809,13 @@ class Editor extends Component {
 
                 {this.props.global.public ? (
                 <IonButton title="Publicly viewable" onClick={() => this.sitePropertiesShow()}>
-                  <IonIcon icon={people} />
+                  <IonIcon color="danger" icon={people} />
                 </IonButton>
                 ) : null }
+
+              <IonButton title="Animate plan" onClick={() => this.siteAnimateToggle()}>
+                <IonIcon size="large" icon={videocamOutline} />
+              </IonButton>
 
               <IonButton title="Site settings" onClick={() => this.sitePropertiesShow()}>
                 <IonIcon icon={settingsOutline} />
@@ -702,11 +824,21 @@ class Editor extends Component {
               <IonButton 
                 fill="solid" 
                 shape="round" 
-                color="warning" 
+                color="success" 
                 title="Save plan to server" 
-                onClick={() => this.siteSave()}>
+                onClick={() => this.planSave(false)}>
                   &nbsp;Save&nbsp;
               </IonButton>
+
+              <IonButton title="Exit planner" onClick={() => this.planSave(true)}>
+                <IonIcon size="large" color="medium" icon={exitOutline} />
+              </IonButton>
+
+              {isDev() ? (
+                <IonButton title="Dump data" onClick={() => this.dumpData()}>
+                  <IonIcon size="large" color="medium" icon={bugOutline} />
+                </IonButton>              
+              ) : null}
 
             </IonButtons>
           </IonToolbar>
@@ -726,7 +858,6 @@ class Editor extends Component {
             <div id="mainpane" style={{ height: "100vh", position: "relative" }}>
                 <div style={{ height: "100%" }}>
                     <MapContainer 
-                      idstart={this.state.idstart}
                       onDataChange={this.onDataChange}
                       onSelectionChange={this.onSelectionChange}
                       onSetSelected={this.onSetSelected}
@@ -737,6 +868,90 @@ class Editor extends Component {
                       layers={this.state.layers} 
                       />
                 </div>
+
+                {this.state.siteanimateshow ? (
+                  <div style={{ 
+                      position: "absolute", 
+                      bottom: "0px", 
+                      left: "0px", 
+                      height: "25%", 
+                      width: "100%", 
+                      zIndex: "2",
+                      display: "flex",
+                      backgroundColor: "#191b1d" }}>
+                    
+                    <div
+                      ref={this.tracksRef}
+                      className={"animation-tracks"}
+                      style={{ 
+                        width: '150px',
+                        margin: "0px",
+                        height: "100%",
+                        flex: "0 1  auto",
+                        overflow: "overlay",
+                        overflowX: "hidden",
+                        padding: "0px"
+                      }}
+                      onScroll={(e) => {
+                        const target = e.target;
+                        this.timelineRef.current.setScrollTop(target.scrollTop);
+                      }} >
+                        <div style={{
+                          height: "42px",
+                          margin: "0px 0px 0px 30px",
+                        }}>
+                          <IonIcon color="medium" size="large" title="Play" onClick={() => {
+                            var endTime = this.getAnimationEnd();
+                            if (endTime !== 0) this.timelineRef.current.play({toTime: endTime});
+                          }} icon={play} />
+                          <IonIcon color="medium" size="large" title="Pause" onClick={() => this.timelineRef.current.pause()} icon={pause} />
+                          <IonIcon color="medium" size="large" title="Stop" onClick={() => {
+                            this.timelineRef.current.pause(0);
+                            this.timelineRef.current.setTime(0);
+                            this.timelineRef.current.reRender();
+                          }} icon={stop} />
+
+                        </div>
+
+                      {this.state.layers.map((layer, index) => {
+                        return (
+                          <div style={{
+                            height: "31px",
+                            padding: "0px",
+                            width: "100%",
+                            display: "flex",
+                            justifyContent: "left",
+                            alignItems: "middle",
+                            color: "white",
+                            fontSize: "80%",
+                            borderBottom: "1px solid #333"
+                          }} 
+                          key={index}>
+                            <div className="text" style={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignContent: "center",
+                              flexDirection: "column",
+                              paddingLeft: "10px"
+                            }}>{layer.name}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Timeline
+                      ref={this.timelineRef}
+                      onChange={this.setAnimationData}
+                      style = {{
+                        height: "100%",
+                        flex: "1 1 auto"
+                      }}
+                      editorData={this.state.animationdata}
+                      effects={mockEffect}
+                      onScroll={({ scrollTop }) => {this.tracksRef.current.scrollTop = scrollTop;}}
+                      onDoubleClickRow={(e, {row, time}) => {this.addAnimationData(e, row, time)}}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="vertical-divider"></div>                
             </div>

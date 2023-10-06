@@ -17,6 +17,7 @@ function App() {
     <Provider store={store}>
       <BrowserRouter>
         <Routes>
+          <Route path="/static/openplanner/index.html" element={<Editor />} />
           <Route path="/" element={<Editor />} />
         </Routes>
       </BrowserRouter>

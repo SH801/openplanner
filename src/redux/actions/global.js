@@ -8,6 +8,7 @@
 import Cookies from 'js-cookie';
 import { API_URL, FITBOUNDS_PADDING } from "../../constants";
 import { bbox } from '@turf/turf';
+export const isDev = () =>  !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 
 /**
  * setGlobalState
@@ -65,9 +66,8 @@ export const fetchEntity = (id) => {
       "Content-Type": "application/json",
       'X-CSRFToken': csrftoken      
     };
-
-    return fetch(API_URL + "/account/entity/" + id.toString(), {headers, method: "POST"})
-    // return fetch(API_URL + "/account/entity/" + id.toString(), {headers, method: "POST", credentials: 'include'})
+    let apiparams = isDev() ? {headers, method: "POST"} : {headers, method: "POST", credentials: 'include'};
+    return fetch(API_URL + "/account/entity/" + id.toString(), apiparams)
       .then(res => {
         if (res.status < 500) {
           return res.json().then(data => {
@@ -109,9 +109,8 @@ export const fetchEntities = () => {
       "Content-Type": "application/json",
       'X-CSRFToken': csrftoken      
     };
-
-    return fetch(API_URL + "/account/entities/", {headers, method: "POST"})
-    // return fetch(API_URL + "/account/entities/", {headers, method: "POST", credentials: 'include'})
+    let apiparams = isDev() ? {headers, method: "POST"} : {headers, method: "POST", credentials: 'include'};
+    return fetch(API_URL + "/account/entities/", apiparams)
       .then(res => {
         if (res.status < 500) {
           return res.json().then(data => {
@@ -144,9 +143,8 @@ export const fetchPlan = (id) => {
       "Content-Type": "application/json",
       'X-CSRFToken': csrftoken      
     };
-
-    return fetch(API_URL + "/account/plan/" + id.toString(), {headers, method: "POST"})
-    // return fetch(API_URL + "/account/plan/" + id.toString(), {headers, method: "POST", credentials: 'include'})
+    let apiparams = isDev() ? {headers, method: "POST"} : {headers, method: "POST", credentials: 'include'};
+    return fetch(API_URL + "/account/plan/" + id.toString(), apiparams)
       .then(res => {
         if (res.status < 500) {
           return res.json().then(data => {
@@ -180,9 +178,8 @@ export const savePlan = (plan) => {
       'X-CSRFToken': csrftoken      
     };
     let body = JSON.stringify(plan);
-
-    return fetch(API_URL + "/account/plan/save/", {headers, method: "POST", body})
-    // return fetch(API_URL + "/account/plan/save/", {headers, method: "POST", credentials: 'include', body})
+    let apiparams = isDev() ? {headers, method: "POST", body} : {headers, method: "POST", credentials: 'include', body};
+    return fetch(API_URL + "/account/plan/save/", apiparams)
       .then(res => {
         if (res.status < 500) {
           return res.json().then(data => {
