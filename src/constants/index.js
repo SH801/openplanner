@@ -42,6 +42,6 @@ export const DEFAULT_MAXBOUNDS = [
 ]
 
 // General padding for fitting bounds
-export const FITBOUNDS_PADDING = 10;
+export const FITBOUNDS_PADDING = 60;
 
 

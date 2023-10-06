@@ -1,0 +1,12 @@
+{
+    "type": "line",
+    "filter": [
+        "all"
+    ],
+    "id": "line",
+    "paint": {
+    "line-color": "orange",
+    "line-width": 3,
+    "line-opacity": 1
+    }
+}

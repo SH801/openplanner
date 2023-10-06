@@ -5,6 +5,9 @@
  */ 
 
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
+import { withRouter } from '../redux/functions/withRouter';
+import { global } from "../redux/actions";
 import { 
   IonButtons, 
   IonContent, 
@@ -18,19 +21,30 @@ import {
   IonItem,
   IonReorderGroup, 
   IonPage, 
-  IonTitle, 
   IonToolbar,
   IonAlert,
+  IonInput
 } from '@ionic/react';
-
-import { trashOutline, duplicateOutline, addOutline, pushOutline, downloadOutline } from 'ionicons/icons';
+import { 
+  people,
+  trashOutline, 
+  duplicateOutline, 
+  addOutline, 
+  pushOutline, 
+  downloadOutline, 
+  settingsOutline 
+} from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
 import { ContentState, convertToRaw } from 'draft-js';
 import { EditorState } from 'draft-js';
 import draftToHtml from 'draftjs-to-html';
 import htmlToDraft from 'html-to-draftjs';
-
+import toast from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
+import queryString from "query-string";
+
+import SiteProperties from './SiteProperties';
 import Layer from './Layer';
 import LayerProperties from './LayerProperties';
 import MapContainer from './MapContainer';
@@ -38,7 +52,8 @@ import MapContainer from './MapContainer';
 class Editor extends Component {
 
   state = {
-    layers: null,
+    name: "Untitled plan",
+    layers: [],
     selected: null,
     map: null,
     mapdraw: null,
@@ -46,23 +61,20 @@ class Editor extends Component {
     layerselected: null,
     idstart: 0,
     layerproperties: {},
-    showlayerproperties: false,
+    layerpropertiesshow: false,
+    siteproperties: {},
+    sitepropertiesshow: false,
+    sitepropertiescancel: true,
     editorState: null,
-    contentState: null,
   }
 
   constructor(props) {
     super(props);
-
     this.workingWidth = 300;
     this.startingWidth = 300;
-  
+    this.state.layers = [JSON.parse(JSON.stringify(require("../constants/defaultlayer.json")))];
     this.state.editorState = EditorState.createEmpty();
-
-    this.state.layers = require("../constants/testbundle.json");
-    this.state.idstart = this.getIdStart(this.state.layers);
     this.mapdrawStyles = require("../constants/mapdrawstyles.json");
-
     this.mapdraw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
@@ -74,7 +86,59 @@ class Editor extends Component {
       userProperties: true,
       styles: this.mapdrawStyles
     });
+  }
 
+  initialSitePropertiesShow = () => {
+    var siteproperties = {
+      name: this.props.global.name,
+      public: this.props.global.public,
+      entityid: (this.props.global.entity === null) ? null : this.props.global.entity.id
+    };
+    this.setState({siteproperties: siteproperties, sitepropertiesshow: true, sitepropertiescancel: false});
+  }
+
+  sitePropertiesShow = () => {
+    var siteproperties = {
+      name: this.props.global.name,
+      public: this.props.global.public,
+      entityid: (this.props.global.entity === null) ? null : this.props.global.entity.id
+    };
+    this.setState({siteproperties: siteproperties, sitepropertiesshow: true, sitepropertiescancel: true});
+  }
+
+  sitePropertiesSet = (event) => {
+    var name = event.target.name;
+    var value = event.target.value;
+    if (event.target.nodeName === 'ION-TOGGLE') value = !this.state.siteproperties[name];
+    var siteproperties = {...this.state.siteproperties};
+    siteproperties[name] = value;
+    this.setState({siteproperties: siteproperties});
+  }
+
+  sitePropertiesClose = () => {
+    this.setState({sitepropertiesshow: false});
+  }
+
+  siteSave = () => {
+    var center = this.state.map.getCenter();
+    var plan = {
+      id: this.props.global.id,
+      name: this.props.global.name,
+      entityid: this.props.global.entityid,
+      public: this.props.global.public,
+      data: {
+        zoom: this.state.map.getZoom(),
+        bearing: this.state.map.getBearing(),
+        pitch: this.state.map.getPitch(),
+        lat: center.lat,
+        lng: center.lng,
+        satellite: this.props.global.satellite,
+        layers: this.state.layers
+      }
+    };
+    this.props.savePlan(plan).then(() => {
+      toast.success('Plan saved');
+    })
   }
 
   onVerticalStart = (ev) => {
@@ -118,9 +182,65 @@ class Editor extends Component {
   }
 
   onSetMap = (map) => {
+    let params = queryString.parse(this.props.router.location.search);
     this.setState({map: map});
+    this.props.setGlobalState({map: map});
+    this.props.fetchEntities().then(() => {
+
+      // Check if planid included in url params
+      if ('planid' in params) {
+        toast.success('Loading plan...');
+
+        this.props.fetchPlan(params['planid']).then(() => {
+          let layers = [];
+          if ('layers' in this.props.global.data) layers = this.props.global.data.layers;
+          var idstart = this.getIdStart(layers);
+          this.setState({idstart: idstart, layers: layers});
+      
+          if (this.props.global.entityid === null) {
+            this.initialSitePropertiesShow();
+            if ('zoom' in this.props.global.data) map.jumpTo({zoom: this.props.global.data.zoom});
+            if ('pitch' in this.props.global.data) map.jumpTo({pitch: this.props.global.data.pitch});
+            if ('bearing' in this.props.global.data) map.jumpTo({bearing: this.props.global.data.bearing});
+            if ('satellite' in this.props.global.data) {
+              this.props.setGlobalState({satellite: this.props.global.data['satellite']});
+              if (this.props.global.data['satellite']) {
+                document.getElementById('pitchtoggle').classList.remove('maplibregl-ctrl-pitchtoggle-3d');
+                document.getElementById('pitchtoggle').classList.add('maplibregl-ctrl-pitchtoggle-2d');  
+              }
+            }
+            if (('lat' in this.props.global.data) && ('lng' in this.props.global.data)) {
+              map.jumpTo({center: [this.props.global.data['lng'], this.props.global.data['lat']]});
+            }  
+          }
+          else this.props.fetchEntity(this.props.global.entityid).then(() => {
+            // Set zoom, pitch, bearing, satellite after initial entity load to ensure we have correct maxbounds
+            if ('zoom' in this.props.global.data) map.jumpTo({zoom: this.props.global.data.zoom});
+            if ('pitch' in this.props.global.data) map.jumpTo({pitch: this.props.global.data.pitch});
+            if ('bearing' in this.props.global.data) map.jumpTo({bearing: this.props.global.data.bearing});
+            if ('satellite' in this.props.global.data) {
+              this.props.setGlobalState({satellite: this.props.global.data['satellite']});
+              if (this.props.global.data['satellite']) {
+                document.getElementById('pitchtoggle').classList.remove('maplibregl-ctrl-pitchtoggle-3d');
+                document.getElementById('pitchtoggle').classList.add('maplibregl-ctrl-pitchtoggle-2d');
+              }
+            }
+            if (('lat' in this.props.global.data) && ('lng' in this.props.global.data)) {
+              map.jumpTo({center: [this.props.global.data['lng'], this.props.global.data['lat']]});
+            }  
+          });
+
+        })
+      } else {
+        if ((this.props.global.entity === null) && (this.props.global.entities.length !== 0)) {
+          this.initialSitePropertiesShow();
+        }
+        this.setState({layers: []});
+      }
+    });
   }
 
+  
   onSelectionChange = (data) => {
     this.clearSelectedFeatures();
     if ((data.features.length > 0) && (this.state.selected !== null)) {
@@ -240,7 +360,7 @@ class Editor extends Component {
     layerproperties.widthline = widthline;
     layerproperties.iconsize = iconsize;
 
-    this.setState({selected: key, showlayerproperties: true, layerproperties: layerproperties});
+    this.setState({selected: key, layerpropertiesshow: true, layerproperties: layerproperties});
   }
 
   onEditorStateChange = (editorState) => {
@@ -254,7 +374,7 @@ class Editor extends Component {
   }
 
   layerEditCancel = () => {
-    this.setState({showlayerproperties: false});
+    this.setState({layerpropertiesshow: false});
   }
 
   layerEditSubmit = () => {
@@ -296,7 +416,7 @@ class Editor extends Component {
       layers[this.state.selected] = currlayer;
       this.setState({layers: layers});
     }
-    this.setState({showlayerproperties: false});
+    this.setState({layerpropertiesshow: false});
   }
 
   handleReorder = (event) => {
@@ -350,10 +470,6 @@ class Editor extends Component {
     }
   }
 
-  onFeatureSelected = (data) => {
-    console.log(data);
-  }
-
   onSetSelected = (layerId, featureId) => {
     this.setSelected(layerId);
     var feature = this.mapdraw.get(featureId);
@@ -376,10 +492,23 @@ class Editor extends Component {
     this.setState({selected: index});
   }
 
+  selectDefaultLayer = () => {
+    if (this.state.layers.length === 0) {
+      var layers = this.state.layers;
+      layers.push(JSON.parse(JSON.stringify(require("../constants/defaultlayer.json"))));
+      this.setState({layers: layers});
+    }
+    if (this.state.selected === null) this.setState({selected: 0});
+  }
+
   onClick = (event, key) => {
     this.setSelected(key);
     event.stopPropagation();
   }
+
+  onNameChange = (e) => {
+    this.props.setGlobalState({name: e.detail.value});   
+  };
 
   deselectLayers = () => {
     this.setSelected(null);
@@ -438,7 +567,6 @@ class Editor extends Component {
               featurecollections[i].features[j]['id'] = maxid;
               maxid++;          
             }
-            console.log(defaultlayer);
             defaultlayer['featurecollection']['features'] = featurecollections[i].features;
             layers.push(defaultlayer);
           }
@@ -548,14 +676,51 @@ class Editor extends Component {
       <>
 
       <IonPage>
+
+        <Toaster position="top-center"  containerStyle={{top: 20}}/>
+
         <IonHeader>
           <IonToolbar>
-            <IonTitle>Site Planning Tool</IonTitle>
+            <IonItem>                            
+              <IonInput value={this.props.global.name} label="Plan name" name="name" onIonChange={this.onNameChange} type="text" placeholder="Enter plan name" /> 
+              <span onClick={() => this.sitePropertiesShow()} style={{width: "50%", textAlign: "right"}}>
+                {(this.props.global.entity === null) ? null : this.props.global.entity.name }
+                </span>
+            </IonItem>
             <IonButtons slot="end">
+
+                {this.props.global.public ? (
+                <IonButton title="Publicly viewable" onClick={() => this.sitePropertiesShow()}>
+                  <IonIcon icon={people} />
+                </IonButton>
+                ) : null }
+
+              <IonButton title="Site settings" onClick={() => this.sitePropertiesShow()}>
+                <IonIcon icon={settingsOutline} />
+              </IonButton>
+
+              <IonButton 
+                fill="solid" 
+                shape="round" 
+                color="warning" 
+                title="Save plan to server" 
+                onClick={() => this.siteSave()}>
+                  &nbsp;Save&nbsp;
+              </IonButton>
+
             </IonButtons>
           </IonToolbar>
         </IonHeader>
         <IonContent className="ion-padding">
+
+          <SiteProperties 
+                isOpen={this.state.sitepropertiesshow} 
+                allowCancel={this.state.sitepropertiescancel}
+                close={this.sitePropertiesClose} 
+                state={this.state.siteproperties} 
+                set={this.sitePropertiesSet} />
+
+
           <IonSplitPane when={true} contentId="mainpane">
 
             <div id="mainpane" style={{ height: "100vh", position: "relative" }}>
@@ -567,6 +732,7 @@ class Editor extends Component {
                       onSetSelected={this.onSetSelected}
                       onSetMap={this.onSetMap}
                       mapdraw={this.mapdraw} 
+                      selectDefaultLayer={this.selectDefaultLayer}
                       selected={this.state.selected} 
                       layers={this.state.layers} 
                       />
@@ -579,10 +745,9 @@ class Editor extends Component {
               <IonContent onClick={this.deselectLayers} className="ion-padding">
 
               <LayerProperties 
-                isOpen={this.state.showlayerproperties} 
+                isOpen={this.state.layerpropertiesshow} 
                 editorState={this.state.editorState}
                 onEditorStateChange={this.onEditorStateChange}
-                contentState={this.state.contentState}
                 state={this.state.layerproperties} 
                 set={this.layerEditProperty}
                 cancel={this.layerEditCancel} 
@@ -690,4 +855,30 @@ class Editor extends Component {
   }
 }
 
-export default Editor;
+export const mapStateToProps = state => {
+  return {
+    global: state.global,
+  }
+}
+    
+export const mapDispatchToProps = dispatch => {
+  return {
+      setGlobalState: (globalstate) => {
+        return dispatch(global.setGlobalState(globalstate));
+      },  
+      fetchEntity: (id) => {
+        return dispatch(global.fetchEntity(id));
+      },      
+      fetchEntities: () => {
+        return dispatch(global.fetchEntities());
+      },  
+      fetchPlan: (id) => {
+        return dispatch(global.fetchPlan(id));
+      },      
+      savePlan: (plan) => {
+        return dispatch(global.savePlan(plan));
+      },  
+  }
+}  
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(Editor));

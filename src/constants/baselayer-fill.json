@@ -1,0 +1,16 @@
+{
+    "type": "fill",
+    "filter": [
+    "all",
+    [
+        "==",
+        "$type",
+        "Polygon"
+    ]                
+    ], 
+    "id": "fill",
+    "paint": {
+    "fill-color": "white",
+    "fill-opacity": 0.2
+    }
+}

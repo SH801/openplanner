@@ -1,5 +1,8 @@
 import React, { Component } from 'react';
 import { Map, NavigationControl, GeolocateControl, Source, Layer }  from 'react-map-gl/maplibre';
+import { connect } from 'react-redux';
+import { withRouter } from '../redux/functions/withRouter';
+import { global } from "../redux/actions";
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 
@@ -10,9 +13,57 @@ import {
     DEFAULT_PITCH,
     DEFAULT_BEARING,
 } from "../constants";
-// import queryString from "query-string";
   
 const isDev = () =>  !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+
+
+export class PitchToggle extends Component{
+    
+    constructor(props) {
+      super(props);
+      this._pitch = props.pitch;
+      this._mapcontainer = props.mapcontainer;
+    }
+  
+    onAdd(map) {
+      this._map = map;
+      let _this = this; 
+      this._btn = document.createElement('button');
+      if (this._mapcontainer.props.global.satellite) {
+        this._btn.className = 'maplibregl-ctrl-pitchtoggle-2d';
+      }   
+      else {
+        this._btn.className = 'maplibregl-ctrl-pitchtoggle-3d';
+      }
+      this._btn.type = 'button';
+      this._btn.id = "pitchtoggle"
+      this._btn.setAttribute('data-tooltip-id', 'ctrlpanel-tooltip');
+      this._btn.setAttribute('data-tooltip-content', 'Toggle between 2D and 3D view');
+      this._btn.onclick = function() { 
+        var currsatellite = _this._mapcontainer.props.global.satellite;
+        var newsatellite = !currsatellite;
+        _this._mapcontainer.props.setGlobalState({satellite: newsatellite});
+        if (newsatellite) {
+            map.easeTo({pitch: _this._pitch});
+            _this._btn.className = 'maplibregl-ctrl-pitchtoggle-2d';
+        } else {
+            map.easeTo({pitch: 0, bearing: 0});
+            _this._btn.className = 'maplibregl-ctrl-pitchtoggle-3d';
+        } 
+      };
+      
+      this._container = document.createElement('div');
+      this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+      this._container.appendChild(this._btn);
+  
+      return this._container;
+    }
+  
+    onRemove() {
+      this._container.parentNode.removeChild(this._container);
+      this._map = undefined;
+    }
+  }
 
 export class MapContainer extends Component  {
 
@@ -31,19 +82,23 @@ export class MapContainer extends Component  {
     }
     
     constructor(props) {
-      super(props);
-      this.mapRef = React.createRef();
-      this.popupRef = React.createRef();
-  
-      this.icons = require("../constants/icons.json");
+        super(props);
+        this.mapRef = React.createRef();
+        this.popupRef = React.createRef();
 
-      this.state.idstart = props.idstart;
-      this.state.lat = props.lat;
-      this.state.lng = props.lng;
-      this.state.zoom = props.zoom;  
-      this.state.pitch = props.pitch;
-      this.state.bearing = props.bearing;
-  
+        this.icons = require("../constants/icons.json");
+        this.baselayerLine = require("../constants/baselayer-line.json");
+        this.baselayerFill = require("../constants/baselayer-fill.json");
+
+        this.pitchtoggle = new PitchToggle({mapcontainer: this, pitch: 70});
+
+        this.state.idstart = props.idstart;
+        this.state.lat = props.lat;
+        this.state.lng = props.lng;
+        this.state.zoom = props.zoom;  
+        this.state.pitch = props.pitch;
+        this.state.bearing = props.bearing;
+
     //   let params = queryString.parse(this.props.location.search);
     //   if (params.lat !== undefined) this.state.lat = params.lat;
     //   if (params.lng !== undefined) this.state.lng = params.lng;
@@ -98,16 +153,19 @@ export class MapContainer extends Component  {
         }
         this.props.onSetMap(map);
 
-        map.addControl(this.props.mapdraw, 'top-left');  
+        map.addControl(this.pitchtoggle, 'top-left'); 
+        map.addControl(this.props.mapdraw, 'top-left');   
 
-        map.on('draw.render', (data) => {
-        //    this.props.onDataChange(data);
-        });
+        // Restyle to deal with using maplibre-gl and not mapbox-gl
+        document.getElementsByClassName('mapboxgl-ctrl-group')[0].classList.add('maplibregl-ctrl');                      
+        document.getElementsByClassName('mapboxgl-ctrl-group')[0].classList.add('maplibregl-ctrl-group');                      
 
         map.on('draw.modechange', (mode) => {
-            this.setState({mode: mode.mode});
+            console.log("modechange");
+            if (this.props.selected === null) this.props.selectDefaultLayer();
+            this.setState({mode: mode.mode})
         });
-    
+        map.on('draw.selectionchange', (data) => {this.props.onSelectionChange(data)});    
         map.on('draw.create', (data) => {
             // Replace string id with numerical id so we can setFeatureState on it
             var feature = data.features[0];
@@ -118,21 +176,14 @@ export class MapContainer extends Component  {
             this.setState({idstart: newId});
             this.props.onDataChange(data);
         });
-
-        map.on('draw.selectionchange', (data) => {
-            this.props.onSelectionChange(data);
-        });
-    
-        // Restyle to deal with using maplibre-gl and not mapbox-gl
-        document.getElementsByClassName('mapboxgl-ctrl-group')[0].classList.add('maplibregl-ctrl');                      
-        document.getElementsByClassName('mapboxgl-ctrl-group')[0].classList.add('maplibregl-ctrl-group');                      
     }
   
     amendStyleForInteraction = (visible, index, style) => {
         let JSONstyle = JSON.stringify(style);
         let newstyle = JSON.parse(JSONstyle);
         let prevlayer = null;
-        if (index > 0) prevlayer = (index - 1).toString() + "_line";
+        if (index === 0) prevlayer = 'highlight-active-points.cold';
+        else prevlayer = (index - 1).toString() + "_line";
         newstyle.id = index.toString() + "_" + newstyle.id;
         if (!visible) {
             if (index === this.props.selected) {
@@ -264,36 +315,71 @@ export class MapContainer extends Component  {
               bearing: this.state.bearing
             }}  
             interactiveLayerIds={this.getInteractiveLayerIds()}
-            mapStyle={require(isDev() ? '../constants/mapstyletest.json' : '../constants/mapstyle.json')}
+            mapStyle={this.props.global.satellite ? 
+                (require(isDev() ? '../constants/terrainstyletest.json' : '../constants/terrainstyle.json')) : 
+                (require(isDev() ? '../constants/mapstyletest.json' : '../constants/mapstyle.json'))
+              }    
           >
   
             <GeolocateControl position="top-left" />  
             <NavigationControl visualizePitch={true} position="top-left" />     
 
-            {this.props.layers.map((layer, index) => {
-                return (
-                    <div key={index.toString()}>
-                        <Source key={index} id={index.toString()} type="geojson" data={layer.featurecollection}>
-                            {layer.styles.map((style, styleindex) => {
-                                var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
-                                return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
-                            })}
-                        </Source>
-                    </div>
-                )
-            })}
+            {(this.props.global.entity !== null) ? (
+                <>
+
+                {this.props.layers.map((layer, index) => {
+                    return (
+                        <div key={index.toString()}>
+                            <Source key={index} id={index.toString()} type="geojson" data={layer.featurecollection}>
+                                {layer.styles.map((style, styleindex) => {
+                                    var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
+                                    return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
+                                })}
+                            </Source>
+                        </div>
+                    )
+                })}
+
+                {(this.props.layers.length === 0) ? (
+                    <Source id="base-layer" type="geojson" data={this.props.global.entity.geojson} >
+                        <Layer {...this.baselayerFill} />
+                        <Layer {...this.baselayerLine} />
+                    </Source>
+                ) : (
+                    <Source id="base-layer" type="geojson" data={this.props.global.entity.geojson} >
+                        <Layer {...this.baselayerFill} beforeId={(this.props.layers.length - 1).toString() + "_line"} />
+                        <Layer {...this.baselayerLine} beforeId={(this.props.layers.length - 1).toString() + "_line"} />
+                    </Source>
+                )}
+                </>
+            ) : null }
+
 
         </Map>
       )
     }
-  }
+}
 
-  MapContainer.defaultProps = {
+MapContainer.defaultProps = {
     lat: DEFAULT_LAT,
     lng: DEFAULT_LNG,
     zoom: DEFAULT_ZOOM,
     pitch: DEFAULT_PITCH,
     bearing: DEFAULT_BEARING
-  };
+};
+
+export const mapStateToProps = state => {
+    return {
+        global: state.global,
+    }
+}
+    
+export const mapDispatchToProps = dispatch => {
+    return {
+        setGlobalState: (globalstate) => {
+            return dispatch(global.setGlobalState(globalstate));
+        },  
+    }
+}  
   
-  export default MapContainer;
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MapContainer));
