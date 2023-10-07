@@ -50,7 +50,7 @@ class CameraProperties extends Component {
         >
             <IonHeader>
                 <IonToolbar>
-                    <IonTitle>Camera position</IonTitle>
+                    <IonTitle>Set camera edit position</IonTitle>
                 </IonToolbar>
             </IonHeader>
             <IonContent className="ion-padding">

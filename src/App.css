@@ -37,6 +37,68 @@
   }
 }
 
+.animation-editor {
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
+  height: 25%; 
+  width: 100%; 
+  z-index: 2;
+  display: flex;
+  background-color: #191b1d;
+}
+
+.animation-tracks {
+  width: 200px;
+  margin-top: 42px;
+  height: 100% - 42px;
+  flex: 0 1  auto;
+  overflow: overlay;
+  overflow-x: hidden;
+  padding: 0px
+}
+
+.animation-tracks-header {
+  position: absolute;
+  background-color: #191b1d;
+  height: 42px;
+  font-size: 140%;
+  /* margin: 10px 5px; */
+  margin: 5px 0px 0px 5px;
+}
+
+.animation-track-header-zoom {
+  position: absolute;
+  top: -4px;
+  left: 110px;
+  width: 45px
+}
+
+.animation-track-row {
+  height: 31px;
+  padding: 0px;
+  width: 100%;
+  display: flex;
+  justify-content: left;
+  align-items: middle;
+  color: white;
+  font-size: 80%;
+  border-bottom: 1px solid #333;
+}
+
+.animation-track-text {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column;
+  padding-left: 10px;
+}
+
+.animation-timeline {
+  height: 100%!important;
+  flex: 1 1 auto!important;
+}
+
 .timeline-editor-edit-row {
   height: 33px;
   border-bottom: 1px solid #333;
@@ -48,9 +110,10 @@
   scrollbar-width: none;  /* Firefox */
 }
 
+.ReactVirtualized__Grid::-webkit-scrollbar,
 .timeline-editor::-webkit-scrollbar,
 .animation-tracks::-webkit-scrollbar { 
-  display: none;  /* Safari and Chrome */
+  display: none!important;  /* Safari and Chrome */
 }
 
 .maplibregl-canvas {

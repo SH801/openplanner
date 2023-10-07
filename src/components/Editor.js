@@ -23,7 +23,8 @@ import {
   IonPage, 
   IonToolbar,
   IonAlert,
-  IonInput
+  IonInput,
+  IonRange
 } from '@ionic/react';
 import { 
   people,
@@ -38,7 +39,8 @@ import {
   bugOutline,
   play,
   pause,
-  stop
+  stop,
+  stopCircleOutline
 } from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
 import { ContentState, convertToRaw } from 'draft-js';
@@ -61,6 +63,10 @@ import MapContainer from './MapContainer';
 
 export const isDev = () =>  !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 
+export const scaleWidth = 160;
+export const scale = 1;
+export const startLeft = 20;
+
 class Editor extends Component {
 
   state = {
@@ -77,24 +83,33 @@ class Editor extends Component {
     sitepropertiesshow: false,
     sitepropertiescancel: true,
     editorState: null,
-    siteanimateshow: false,
+    animationshow: false,
     animationdata: [],
-    animationeffects: {effect0: {id: "effect0", name: "Layer shown"}},
+    animationeffects: {},
+    animationzoom: 1,
     camerapositions: {},
     cameraproperties: {},
     camerapropertiesshow: false,
     cameratime: null,
+    recording: false,
+    mediarecorder: null,
   }
 
   constructor(props) {
     super(props);
     this.timelineRef = React.createRef();
     this.tracksRef = React.createRef();
+    this.onDoubleClick = false;
     this.workingWidth = 300;
     this.startingWidth = 300;
-    this.state.layers = [JSON.parse(JSON.stringify(require("../constants/defaultlayer.json")))];
-    this.animation = require("../constants/testanimation.json");
     this.state.editorState = EditorState.createEmpty();
+    this.state.layers = [JSON.parse(JSON.stringify(require("../constants/defaultlayer.json")))];
+    this.camerasource = {
+      start: ({ action, engine, isPlaying, time }) => {this.animationCameraEffectStart(action, engine, isPlaying, time)},
+      enter: ({ action, engine, isPlaying, time }) => {this.animationCameraEffectEnter(action, engine, isPlaying, time)},
+      leave: ({ action, engine }) => {this.animationCameraEffectLeave(action, engine)},
+      stop: ({ action, engine }) => {this.animationCameraEffectStop(action, engine)}
+    }  
     this.mapdrawStyles = require("../constants/mapdrawstyles.json");
     this.mapdraw = new MapboxDraw({
       displayControlsDefault: false,
@@ -115,6 +130,81 @@ class Editor extends Component {
     return id.replaceAll('-', '');
   }
 
+  recordingStart = () => {
+    if (!this.state.recording) {
+      // Use MediaRecorder to record video as it's most efficient
+      // Tried using MP4 conversion but too CPU intensive when main app is already working hard
+      if (this.state.map !== null) {
+        this.timelineRef.current.setTime(0);
+        const canvas = this.state.map.getCanvas();
+        const data = []; 
+        const stream = canvas.captureStream(25); 
+        const mediaRecorder = new MediaRecorder(stream);        
+        mediaRecorder.ondataavailable = (e) => data.push(e.data);
+        mediaRecorder.onstop = (e) => {
+          const anchor = document.createElement("a");
+          anchor.href =  URL.createObjectURL(new Blob(data, {type: "video/webm;codecs=h264"}));
+          const now = new Date();
+          const timesuffix = now.toISOString().substring(0,19).replaceAll('T', ' ').replaceAll(':', '-');
+          anchor.download = "positivefarms - " + timesuffix;
+          anchor.click();
+          toast.success('Recording finished - saved to your downloads');
+        }
+        this.animationStart();
+        mediaRecorder.start();
+        toast.success('Recording started');
+        this.setState({recording: true, mediarecorder: mediaRecorder});
+      }     
+    }
+  }
+
+  recordingStop = () => {
+    if (this.state.recording) {
+      if (this.state.mediarecorder !== null) {
+        this.state.mediarecorder.stop();
+      }
+      this.setState({recording: false, mediarecorder: null});  
+    }
+  }
+
+  recordingToggle = () => {
+
+    if (!this.state.recording) {
+      this.recordingStart();
+    } 
+    else {
+      this.recordingStop();
+    }
+  }
+
+  animationStart = () => {
+    var endTime = this.getAnimationEnd();
+    const engine = this.timelineRef.current;
+    engine.listener.on('setTimeByTick', ({ time }) => {
+      const autoScrollFrom = 500;
+      const left = time * (scaleWidth / this.state.animationzoom) + startLeft - autoScrollFrom;
+      this.timelineRef.current.setScrollLeft(left);
+      if (time >= endTime) this.recordingStop();
+    });
+    this.animationNextCameraPosition();                        
+    if (endTime !== 0) this.timelineRef.current.play({toTime: endTime});
+  }
+
+  animationPause = () => {
+    this.recordingStop();
+    this.timelineRef.current.pause();
+  }
+  
+  animationStop = () => {
+    this.recordingStop();
+    this.timelineRef.current.setScrollLeft(0);
+    this.timelineRef.current.pause(0);
+    this.timelineRef.current.setTime(0);
+    this.timelineRef.current.reRender();
+    this.animationCameraInitial();
+    
+  }
+  
   updateAnimationData = (layers) => {
     var animationdata = [];    
     var actions = {};
@@ -133,12 +223,162 @@ class Editor extends Component {
   }
 
   setAnimationData = (animationdata) => {
-    console.log(animationdata);
     this.setState({animationdata: animationdata});
   }
 
+  getLayerLookup = () => {
+    let layers = this.state.layers;
+    let lookup = {}
+    for(let i = 0; i < layers.length; i++) {
+      lookup[layers[i].id] = i;
+    }
+    return lookup;
+  }
+
+  animationCameraInitial = () => {
+    var useinitialsettings = true;
+    var checkfields = ['zoom', 'pitch', 'bearing', 'lat', 'lng'];
+    for(let i = 0; i < checkfields.length; i++) {
+      if (!(checkfields[i] in this.props.global.data)) useinitialsettings = false;
+    }
+
+    if (useinitialsettings) {
+      var cameraposition = {
+        lat: this.props.global.data['lat'],
+        lng: this.props.global.data['lng'],
+        zoom: this.props.global.data['zoom'],
+        pitch: this.props.global.data['pitch'],
+        bearing: this.props.global.data['bearing']
+      }
+      this.cameraPropertiesSetLive(cameraposition);
+    }
+  }
+
+  animationGetNextCameraAction = (time) => {
+    var cameraactions = this.state.animationdata[0].actions;
+    var nextcameraaction = null;
+    for(let i = 0; i < cameraactions.length; i++) {
+      if (nextcameraaction === null) {
+        if (cameraactions[i].start >= time) nextcameraaction = cameraactions[i];
+      }
+      else {
+        if ((cameraactions[i].start >= time) && (cameraactions[i].start < nextcameraaction.start)) {
+          nextcameraaction = cameraactions[i];
+        }
+      }
+    }
+
+    return nextcameraaction;
+  }
+
+  animationGetTime = () => {
+    return this.timelineRef.current.getTime();
+  }
+
+  animationNextCameraPosition = () => {
+    var animationtime = this.animationGetTime();
+    var nextcameraaction = this.animationGetNextCameraAction(animationtime);
+    if (animationtime === 0) this.animationCameraInitial();
+    if (nextcameraaction !== null) {
+      var timetillnextaction = nextcameraaction.start - animationtime;
+      var nextcameraposition = this.state.camerapositions[nextcameraaction.id]
+      if (this.state.map) {
+        var center = {lat: nextcameraposition.lat, lng: nextcameraposition.lng};
+        console.log("animationNextCameraPosition");
+        this.state.map.flyTo({
+          center: center,
+          bearing: nextcameraposition.bearing, 
+          pitch: nextcameraposition.pitch, 
+          zoom: nextcameraposition.zoom,
+          essential: true,
+          duration: (timetillnextaction * 1000),
+          animate: true,
+        })
+      }
+    }
+  }
+
+  animationCameraEffectStart = (action, engine, isPlaying, time) => {
+    console.log("animationCameraEffectStart");
+  }
+
+  animationCameraEffectEnter = (action, engine, isPlaying, time) => {
+    console.log("animationCameraEffectEnter", this.onDoubleClick);
+    // We only change camera position on enter when not playing as we assume prior transition will have got us here
+    if ((!isPlaying) && (!this.onDoubleClick)) {
+      var id = action.id;
+      var cameraposition = this.state.camerapositions[id];
+      this.cameraPropertiesSetLive(cameraposition);
+    }
+    this.onDoubleClick = false;
+  }
+
+  animationCameraEffectLeave = (action, engine) => {
+    console.log("animationCameraEffectLeave");
+    if (!this.onDoubleClick) {
+      this.animationNextCameraPosition();
+    }
+  }
+
+  animationCameraEffectStop = (action, engine) => {
+    console.log("animationCameraEffectStop");
+  }
+
+  refreshAnimationEffects = () => {
+    var animationeffects = {...this.state.animationeffects};
+    delete animationeffects['effect0'];
+    animationeffects['effect0'] = {
+      id: "effect0", 
+      name: "Layer shown",
+      source: {
+        start: ({ action, engine, isPlaying, time }) => {
+          console.log("animationLayerEffectStart", action, engine, time);
+        },
+        enter: ({ action, engine, isPlaying, time }) => {
+          console.log("animationLayerEffectEnter");
+          var lookup = this.getLayerLookup();   
+          if (this.state.map !== null) {
+            var layerindex = lookup[action.layerid];
+            var sourcestyles = this.state.layers[layerindex].styles;
+            for (let i = 0; i < sourcestyles.length; i++) {
+              var layerid = layerindex.toString() + "_" + sourcestyles[i].id;
+              var paintopacityproperty = sourcestyles[i].id + '-opacity';
+              if (paintopacityproperty === 'symbol-opacity') paintopacityproperty = 'icon-opacity';
+              this.state.map.setPaintProperty(layerid, paintopacityproperty, sourcestyles[i]['paint'][paintopacityproperty]);
+            }
+          }
+        },
+        leave: ({ action, engine }) => {
+          console.log("animationLayerEffectLeave");
+          var lookup = this.getLayerLookup();   
+          if (this.state.map !== null) {
+            var layerindex = lookup[action.layerid];
+            var sourcestyles = this.state.layers[layerindex].styles;
+            for (let i = 0; i < sourcestyles.length; i++) {
+              var layerid = layerindex.toString() + "_" + sourcestyles[i].id;
+              var paintopacityproperty = sourcestyles[i].id + '-opacity';
+              if (paintopacityproperty === 'symbol-opacity') paintopacityproperty = 'icon-opacity';
+              this.state.map.setPaintProperty(layerid, paintopacityproperty, 0);
+            }
+          }
+        },
+        stop: ({ action, engine }) => {
+          console.log("animationLayerEffectStop");
+        },
+      },      
+    }
+
+    for (const [key] of Object.entries(animationeffects)) {
+      // Reassign source to all camera effects, ie. those not 'effect0'
+      if (key !== 'effect0') animationeffects[key]['source'] = this.camerasource;
+    }
+
+    this.setState({animationeffects: animationeffects});
+  }
+
   addAnimationData = (e, row, time) => {
-    var animationdata = this.state.animationdata;
+    var animationdata = [...this.state.animationdata];
+    this.refreshAnimationEffects();
     if (row.id === 'camera') {
       // Camera actions are always in first row
       var cameraactions = animationdata[0].actions;
@@ -152,10 +392,11 @@ class Editor extends Component {
     } else {
       var newAction = {
         id: this.getUniqueID(),
+        layerid: row.id,
         start: time,
         end: time + 0.5,
         effectId: "effect0"
-      } 
+      }   
       for(let i = 0; i < animationdata.length; i++) {
         // If time is within existing action then remove it
         if (animationdata[i].id === row.id) {
@@ -181,7 +422,7 @@ class Editor extends Component {
       for(let j = 0; j < animationdata[i].actions.length; j++)
         if (animationdata[i].actions[j].end > end) end = animationdata[i].actions[j].end;
     }
-    return end;
+    return end + 0.5;
   }
 
   initialSitePropertiesShow = () => {
@@ -216,7 +457,23 @@ class Editor extends Component {
   }
 
   siteAnimateToggle = () => {
-    this.setState({siteanimateshow: !this.state.siteanimateshow});
+    // Save camera position if going into animation
+    // and return to it on leaving animation
+    var cameraproperties = this.cameraPropertiesSaved();
+    if (this.state.animationshow) {
+      this.cameraPropertiesSetLive(cameraproperties);
+    }
+    else {
+      cameraproperties = this.cameraPropertiesNow();
+      var data = this.props.global.data;
+      data['lat'] = cameraproperties.lat;
+      data['lng'] = cameraproperties.lng;
+      data['zoom'] = cameraproperties.zoom;
+      data['pitch'] = cameraproperties.pitch;
+      data['bearing'] = cameraproperties.bearing;
+      this.props.setGlobalState({data: data});
+    }
+    this.setState({animationshow: !this.state.animationshow});
   }
 
   cameraPropertiesNow = () => {
@@ -228,6 +485,32 @@ class Editor extends Component {
       pitch: this.state.map.getPitch(),
       bearing: this.state.map.getBearing()
     };
+  }
+
+  cameraPropertiesSaved = () => {
+    var data = this.props.global.data;
+    var cameraproperties = {
+      'lat': data['lat'],
+      'lng': data['lng'],
+      'zoom': data['zoom'],
+      'pitch': data['pitch'],
+      'bearing': data['bearing']
+    }
+    return cameraproperties;
+  }
+
+  cameraPropertiesSetLive = (cameraposition) => {
+    var center = {lat: cameraposition.lat, lng: cameraposition.lng};
+    console.log("cameraPropertiesSetLive");
+    this.state.map.flyTo({
+      center: center,
+      bearing: cameraposition.bearing, 
+      pitch: cameraposition.pitch, 
+      zoom: cameraposition.zoom,
+      essential: true,
+      duration: 0,
+      animate: false,
+    })
   }
 
   cameraPropertiesShow = (effectId) => {
@@ -263,25 +546,35 @@ class Editor extends Component {
     var animationeffects = this.state.animationeffects;
     var camerapositions = this.state.camerapositions;
     var cameraproperties = this.state.cameraproperties;
+    var currentaction = null;
     if (this.state.cameraproperties['effectId'] === null) {
       var cameraanimationid = this.getUniqueID();
       cameraproperties.effectId = cameraanimationid;
-      animationeffects[cameraanimationid] = {id: cameraanimationid, name: "Camera animation"}
+      animationeffects[cameraanimationid] = {id: cameraanimationid, name: "Camera animation", source: this.camerasource };
       camerapositions[cameraanimationid] = cameraproperties;
-      var newAction = {
+      currentaction = {
         id: cameraanimationid,
         start: this.state.cameratime,
         end: this.state.cameratime + 0.5,
-        effectId: cameraanimationid
+        effectId: cameraanimationid,
       } 
-      cameraactions.push(newAction);
+      cameraactions.push(currentaction);
       animationdata[0].actions = cameraactions;
       this.setState({animationdata: animationdata, animationeffects: animationeffects, camerapositions: camerapositions});
     }
     else {
       // Action already exists so just need to modify camera position
       camerapositions[this.state.cameraproperties['effectId']] = cameraproperties;
+      for(let i = 0; i < cameraactions.length; i++) {
+        if (cameraactions[i].id === this.state.cameraproperties['effectId']) currentaction = cameraactions[i];
+      }
       this.setState({camerapositions: camerapositions});
+    }
+    var animationtime = this.animationGetTime();
+    if (currentaction !== null) {
+      if ((currentaction.start <= animationtime) && (currentaction.end >= animationtime)) {
+        this.cameraPropertiesSetLive(cameraproperties);
+      }
     }
   }
 
@@ -309,9 +602,15 @@ class Editor extends Component {
   }
 
   planSave = (redirect) => {
+    // Only save current camera if not in animation mode
     var data = this.cameraPropertiesNow();
+    if (this.state.animationshow) data = this.cameraPropertiesSaved();
     data.satellite = this.props.global.satellite;
     data.layers = this.state.layers;
+    data.animationdata = this.state.animationdata;
+    data.animationeffects = this.state.animationeffects;
+    data.camerapositions = this.state.camerapositions;
+    data.animationzoom = this.state.animationzoom;
     var plan = {
       id: this.props.global.id,
       name: this.props.global.name,
@@ -377,9 +676,26 @@ class Editor extends Component {
 
         this.props.fetchPlan(params['planid']).then(() => {
           let layers = [];
+          var animationdata = [];
+          var animationeffects = {};
+          var camerapositions = {};
+          var animationzoom = 1;
+
           if ('layers' in this.props.global.data) layers = this.props.global.data.layers;
-          this.setState({layers: layers});
-          this.updateAnimationData(layers);
+          if ('animationdata' in this.props.global.data) animationdata = this.props.global.data.animationdata;
+          if ('animationeffects' in this.props.global.data) animationeffects = this.props.global.data.animationeffects;
+          if ('camerapositions' in this.props.global.data) camerapositions = this.props.global.data.camerapositions;
+          if ('animationzoom' in this.props.global.data) animationzoom = this.props.global.data.animationzoom;
+
+          this.setState({
+            layers: layers, 
+            animationdata: animationdata, 
+            animationeffects: animationeffects, 
+            camerapositions: camerapositions,
+            animationzoom: animationzoom 
+          });
+          if (!('animationdata' in this.props.global.data)) this.updateAnimationData(layers);
+          this.refreshAnimationEffects();
 
           if (this.props.global.entityid === null) {
             this.initialSitePropertiesShow();
@@ -877,6 +1193,15 @@ class Editor extends Component {
     console.log(event);
   }
 
+  onChangeAnimationZoom = (animationzoom) => {
+    this.setState({animationzoom: animationzoom});
+    if (this.timelineRef.current !== null) {
+      // const autoScrollFrom = 500;
+      const left = this.animationGetTime() * (scaleWidth / animationzoom) + startLeft - 50;
+      this.timelineRef.current.setScrollLeft(left);
+    }
+  }
+
   render() {
     return (
       <>
@@ -960,113 +1285,67 @@ class Editor extends Component {
                       onSetSelected={this.onSetSelected}
                       onSetMap={this.onSetMap}
                       mapdraw={this.mapdraw} 
+                      recording={this.state.recording}
                       selectDefaultLayer={this.selectDefaultLayer}
                       selected={this.state.selected} 
                       layers={this.state.layers} 
-                      />
+                      animationshow={this.state.animationshow} />
                 </div>
 
-                {this.state.siteanimateshow ? (
-                  <div style={{ 
-                      position: "absolute", 
-                      bottom: "0px", 
-                      left: "0px", 
-                      height: "25%", 
-                      width: "100%", 
-                      zIndex: "2",
-                      display: "flex",
-                      backgroundColor: "#191b1d" }}>
+                {this.state.animationshow ? (
+                  <div className={"animation-editor"} onLoad={() => {
+                    console.log("animation-editor loaded");
+                  }}>
                     
-                    <div
-                      ref={this.tracksRef}
-                      className={"animation-tracks"}
-                      style={{ 
-                        width: '150px',
-                        margin: "0px",
-                        height: "100%",
-                        flex: "0 1  auto",
-                        overflow: "overlay",
-                        overflowX: "hidden",
-                        padding: "0px"
-                      }}
-                      onScroll={(e) => {
-                        const target = e.target;
-                        this.timelineRef.current.setScrollTop(target.scrollTop);
-                      }} >
-                        <div style={{
-                          height: "42px",
-                          margin: "0px 0px 0px 30px",
-                        }}>
-                          <IonIcon color="medium" size="large" title="Play" onClick={() => {
-                            var endTime = this.getAnimationEnd();
-                            if (endTime !== 0) this.timelineRef.current.play({toTime: endTime});
-                          }} icon={play} />
-                          <IonIcon color="medium" size="large" title="Pause" onClick={() => this.timelineRef.current.pause()} icon={pause} />
-                          <IonIcon color="medium" size="large" title="Stop" onClick={() => {
-                            this.timelineRef.current.pause(0);
-                            this.timelineRef.current.setTime(0);
-                            this.timelineRef.current.reRender();
-                          }} icon={stop} />
+                    <div className={"animation-tracks-header"}>
+                      <IonIcon color={this.state.recording ? "danger" : "light"} title="Record" onClick={this.recordingToggle} icon={stopCircleOutline} />
+                      <IonIcon color="medium" title="Play" onClick={this.animationStart} icon={play} />
+                      <IonIcon color="medium" title="Pause" onClick={this.animationPause} icon={pause} />
+                      <IonIcon color="medium" title="Stop" onClick={this.animationStop} icon={stop} />
+                    </div>
 
+                    <div className={"animation-tracks"} ref={this.tracksRef} 
+                      onScroll={(e) => {this.timelineRef.current.setScrollTop(e.target.scrollTop);}} >
+                        <div className={"animation-track-row"} >
+                          <div className={"animation-track-text"}>Camera</div>
                         </div>
-
-                        <div style={{
-                            height: "31px",
-                            padding: "0px",
-                            width: "100%",
-                            display: "flex",
-                            justifyContent: "left",
-                            alignItems: "middle",
-                            color: "white",
-                            fontSize: "80%",
-                            borderBottom: "1px solid #333" }} >
-                            <div className="text" style={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignContent: "center",
-                              flexDirection: "column",
-                              paddingLeft: "10px"
-                            }}>
-                              Camera
-                            </div>
-                          </div>
 
                       {this.state.layers.map((layer, index) => {
                         return (
-                          <div style={{
-                            height: "31px",
-                            padding: "0px",
-                            width: "100%",
-                            display: "flex",
-                            justifyContent: "left",
-                            alignItems: "middle",
-                            color: "white",
-                            fontSize: "80%",
-                            borderBottom: "1px solid #333"
-                          }} 
-                          key={index}>
-                            <div className="text" style={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignContent: "center",
-                              flexDirection: "column",
-                              paddingLeft: "10px"
-                            }}>{layer.name}</div>
+                          <div key={index} className={"animation-track-row"} >
+                            <div className={"animation-track-text"}>{layer.name}</div>
                           </div>
                         );
                       })}
                     </div>
+                    <div className={"animation-track-header-zoom"} >
+                      <IonRange 
+                        title="Change timeline zoom" 
+                        aria-label="Zoom" 
+                        color="medium" 
+                        value={this.state.animationzoom} 
+                        onIonChange={(e) => this.onChangeAnimationZoom(e.target.value)} 
+                        ticks={false} snaps={true} min={1} max={60} step={-1} />
+                    </div>
+
                     <Timeline
                       ref={this.timelineRef}
-                      onChange={this.setAnimationData}
-                      style = {{
-                        height: "100%",
-                        flex: "1 1 auto"
-                      }}
+                      scale={this.state.animationzoom}
+                      scaleWidth={scaleWidth}
+                      startLeft={startLeft}                      
+                      onChange={this.setAnimationData} 
+                      style = {{height: "100%", flex: "1 1 auto"}}
                       editorData={this.state.animationdata}
                       effects={this.state.animationeffects}
+                      autoScroll={true}
                       onScroll={({ scrollTop }) => {this.tracksRef.current.scrollTop = scrollTop;}}
-                      onDoubleClickRow={(e, {row, time}) => {this.addAnimationData(e, row, time)}}
+                      onDoubleClickRow={(e, {row, time}) => {
+                        console.log(e);
+                        this.onDoubleClick = true;
+                        e.nativeEvent.preventDefault();
+                        this.addAnimationData(e, row, time);
+                        return true;
+                      }}
                     />
                   </div>
                 ) : null}

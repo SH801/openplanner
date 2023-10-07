@@ -3,6 +3,7 @@ import { Map, NavigationControl, GeolocateControl, Source, Layer }  from 'react-
 import { connect } from 'react-redux';
 import { withRouter } from '../redux/functions/withRouter';
 import { global } from "../redux/actions";
+import { initShaders, initVertexBuffers, renderImage } from './webgl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 
@@ -97,12 +98,20 @@ export class MapContainer extends Component  {
         this.state.pitch = props.pitch;
         this.state.bearing = props.bearing;
 
-    //   let params = queryString.parse(this.props.location.search);
-    //   if (params.lat !== undefined) this.state.lat = params.lat;
-    //   if (params.lng !== undefined) this.state.lng = params.lng;
-    //   if (params.zoom !== undefined) this.state.zoom = params.zoom;  
-    //   if (params.pitch !== undefined) this.state.pitch = params.pitch;  
-    //   if (params.bearing !== undefined) this.state.bearing = params.bearing;  
+        var devicePixelRatio = parseInt(window.devicePixelRatio || 1);
+        var logo = new Image();
+        if (devicePixelRatio === 1) {
+          logo.src = "/static/assets/media/positive-farms-glow.png";
+        } else if (devicePixelRatio === 2) {
+          logo.src = "/static/assets/media/positive-farms-glowx2.png";
+        } else if (devicePixelRatio === 3) {
+          logo.src = "/static/assets/media/positive-farms-glowx3.png";
+        } else if (devicePixelRatio === 4) {
+          logo.src = "/static/assets/media/positive-farms-glowx4.png";
+        }
+    
+        this.state.logo = logo;
+    
     }
     
     getInteractiveLayerIds = () => {
@@ -133,8 +142,35 @@ export class MapContainer extends Component  {
     }
 
     onRender = (event) => {
+
+        var gl = event.target.painter.context.gl;
+        var canvas = event.target.getCanvas();
+    
+        // Have to do some involved gl drawing to set background colour on transparency
+        gl.viewport(0,0,canvas.width,canvas.height);
+        gl.enable( gl.BLEND );
+        gl.blendEquation( gl.FUNC_ADD );
+        gl.blendFunc( gl.ONE_MINUS_DST_ALPHA, gl.DST_ALPHA );
+        if (!initShaders(gl)) {
+          console.log('Failed to intialize shaders.');
+          return;
+        }
+    
+        var n = initVertexBuffers(gl);
+        if (n < 0) {
+          console.log('Failed to set the positions of the vertices');
+          return;
+        }
+    
+        gl.drawArrays(gl.TRIANGLES, 0, n);
+    
+        if (this.props.recording) {
+          if (this.state.logo) {
+            renderImage(gl, this.state.logo);
+          }  
+        }
     }
-  
+      
     onLoad = (event) => {
 
         var map = this.mapRef.current.getMap();
@@ -176,6 +212,13 @@ export class MapContainer extends Component  {
         });
     }
   
+    getPrevLayer = (index) => {
+        let prevlayer = null;
+        if (index === 0) prevlayer = 'highlight-active-points.cold';
+        else prevlayer = (index - 1).toString();
+        return prevlayer;
+    }
+
     amendStyleForInteraction = (visible, index, style) => {
         let JSONstyle = JSON.stringify(style);
         let newstyle = JSON.parse(JSONstyle);
@@ -255,6 +298,22 @@ export class MapContainer extends Component  {
         return {prevlayer: prevlayer, style: newstyle};
     }
 
+    amendStyleForAnimation = (index, style) => {
+        let JSONstyle = JSON.stringify(style);
+        let newstyle = JSON.parse(JSONstyle);
+        let prevlayer = null;
+        if (index === 0) prevlayer = 'highlight-active-points.cold';
+        else prevlayer = (index - 1).toString() + "_line";
+        newstyle.id = index.toString() + "_" + newstyle.id;
+        
+        newstyle['transition'] = {duration: 1000, delay: 0}
+        if (newstyle['type'] === 'line') newstyle['paint']['line-opacity'] = 0;
+        if (newstyle['type'] === 'fill') newstyle['paint']['fill-opacity'] = 0;
+        if (newstyle['type'] === 'symbol') newstyle['paint']['icon-opacity'] = 0;
+
+        return {prevlayer: prevlayer, style: newstyle};
+    }
+
     onMouseEnter = (event) => {
     }
   
@@ -317,6 +376,7 @@ export class MapContainer extends Component  {
               bearing: this.state.bearing
             }}  
             interactiveLayerIds={this.getInteractiveLayerIds()}
+            // terrain={{source: "terrainSource", exaggeration: 1.1 }}
             mapStyle={this.props.global.satellite ? 
                 (require(isDev() ? '../constants/terrainstyletest.json' : '../constants/terrainstyle.json')) : 
                 (require(isDev() ? '../constants/mapstyletest.json' : '../constants/mapstyle.json'))
@@ -329,18 +389,37 @@ export class MapContainer extends Component  {
             {(this.props.global.entity !== null) ? (
                 <>
 
-                {this.props.layers.map((layer, index) => {
-                    return (
-                        <div key={index.toString()}>
-                            <Source key={index} id={index.toString()} promoteId="id" type="geojson" data={layer.featurecollection}>
-                                {layer.styles.map((style, styleindex) => {
-                                    var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
-                                    return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
-                                })}
-                            </Source>
-                        </div>
-                    )
-                })}
+                {(this.props.animationshow) ? (
+                    <>
+                    {this.props.layers.map((layer, index) => {
+                        return (
+                            <div key={index.toString()}>
+                                <Source key={index} id={index.toString()} promoteId="id" type="geojson" data={layer.featurecollection} >
+                                    {layer.styles.map((style, styleindex) => {
+                                        var localstyle = this.amendStyleForAnimation(index, style);
+                                        return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
+                                    })}
+                                </Source>
+                            </div>
+                        )
+                    })}
+                    </>
+                ) : (
+                    <>
+                    {this.props.layers.map((layer, index) => {
+                        return (
+                            <div key={index.toString()}>
+                                <Source key={index} id={index.toString()} promoteId="id" type="geojson" data={layer.featurecollection}>
+                                    {layer.styles.map((style, styleindex) => {
+                                        var localstyle = this.amendStyleForInteraction(layer.visible, index, style);
+                                        return (<Layer key={localstyle.style.id} {...localstyle.style} beforeId={localstyle.prevlayer} />);
+                                    })}
+                                </Source>
+                            </div>
+                        )
+                    })}
+                    </>
+                ) }
 
                 {(this.props.layers.length === 0) ? (
                     <Source id="base-layer" type="geojson" data={this.props.global.entity.geojson} >
