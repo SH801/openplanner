@@ -40,7 +40,8 @@ import {
   play,
   pause,
   stop,
-  stopCircleOutline
+  stopCircleOutline,
+  textOutline
 } from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
 import { ContentState, convertToRaw } from 'draft-js';
@@ -53,6 +54,7 @@ import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import queryString from "query-string";
 import { v4 as uuidv4 } from 'uuid';
 import { Timeline } from '@xzdarcy/react-timeline-editor';
+import white from '../images/white.png';
 
 import { EXTERNAL_HOMEPAGE } from "../constants";
 import CameraProperties from './CameraProperties';
@@ -148,7 +150,7 @@ class Editor extends Component {
           const timesuffix = now.toISOString().substring(0,19).replaceAll('T', ' ').replaceAll(':', '-');
           anchor.download = "positivefarms - " + timesuffix;
           anchor.click();
-          toast.success('Recording finished - saved to your downloads');
+          toast.success('Recording finished - saved to downloads');
         }
         this.animationStart();
         mediaRecorder.start();
@@ -897,7 +899,7 @@ class Editor extends Component {
         colorfill = layer.styles[i]['paint']['fill-color'];
         opacityfill = layer.styles[i]['paint']['fill-opacity'];
       }
-      if (layer.styles[i]['type'] === 'symbol') {
+      if ((layer.styles[i]['type'] === 'symbol') && (layer.styles[i].id === 'symbol-default')) {
         iconsize = 100 * layer.styles[i]['layout']['icon-size'];
       }
     }
@@ -928,15 +930,17 @@ class Editor extends Component {
 
   layerEditSubmit = () => {
     if (this.state.selected !== null) {
-      var currlayer = this.state.layers[this.state.selected];
+      var currlayer = JSON.parse(JSON.stringify(this.state.layers[this.state.selected]));
       currlayer.name = this.state.layerproperties.name;
       currlayer.title = this.state.layerproperties.title;
-      currlayer.content = draftToHtml(convertToRaw(this.state.editorState.getCurrentContent()));
+      // currlayer.content = draftToHtml(convertToRaw(this.state.editorState.getCurrentContent()));
+      currlayer.content = this.state.editorState.getCurrentContent().getPlainText('\n');
       currlayer.iconurl = this.state.layerproperties.iconurl;
       currlayer.iconinternal = this.state.layerproperties.iconinternal;
       if (currlayer.iconinternal === "") currlayer.iconinternal = "default";
 
       for (let i = 0; i < currlayer.styles.length; i++) {
+        console.log(currlayer.styles[i]);
         if (currlayer.styles[i]['type'] === 'line') {
           currlayer.styles[i]['paint']['line-color'] = this.state.layerproperties.colorline;
           currlayer.styles[i]['paint']['line-width'] = parseInt(this.state.layerproperties.widthline);
@@ -946,7 +950,7 @@ class Editor extends Component {
           currlayer.styles[i]['paint']['fill-color'] = this.state.layerproperties.colorfill;
           currlayer.styles[i]['paint']['fill-opacity'] = parseFloat(this.state.layerproperties.opacityfill);
         }
-        if (currlayer.styles[i]['type'] === 'symbol') {
+        if ((currlayer.styles[i]['type'] === 'symbol') && (currlayer.styles[i].id === 'symbol-default')) {
           currlayer.styles[i]['layout']['icon-size'] = parseFloat(this.state.layerproperties.iconsize / 100);
           if (currlayer.iconurl === "") {
             currlayer.styles[i]['layout']['icon-image'] = "internal-" + currlayer.iconinternal;
@@ -961,6 +965,51 @@ class Editor extends Component {
         }
       }  
 
+      // Delete or update label point as appropriate
+      var removelabel = true;
+      if ((currlayer.title !== '') || (currlayer.content !== '')) removelabel = false;
+      if (removelabel) {
+        var newfeatures = [];
+        currlayer.featurecollection.features.forEach((feature) => {
+          if (feature.properties['type'] !== 'label') newfeatures.push(feature);
+        });
+        currlayer.featurecollection.features = newfeatures;
+      }
+      else {
+        var foundfeature = false;
+        var features = currlayer.featurecollection.features;
+        for(let i = 0; i < features.length; i++) {
+          if (features[i].properties['type'] === 'label') {
+            currlayer.featurecollection.features[i]['properties'].title = currlayer.title;
+            currlayer.featurecollection.features[i]['properties'].content = currlayer.content;
+            foundfeature = true;
+          }
+        }
+        if (!foundfeature) {
+          var centre = this.state.map.getCenter();
+          var newfeatureid = this.getUniqueID();
+          var newfeature = {
+            "id": newfeatureid,
+            "type": "Feature",
+            "properties": {
+              "id": newfeatureid,
+              "type": "label",
+              "title": currlayer.title,
+              "content": currlayer.content
+            },
+            "geometry": {
+              "coordinates": [
+                centre.lng,
+                centre.lat
+              ],
+              "type": "Point"
+            }
+          }
+          currlayer.featurecollection.features.push(newfeature);   
+        }
+        this.mapdraw.set(currlayer.featurecollection);
+      }
+      
       var layers = this.state.layers;
       layers[this.state.selected] = currlayer;
       this.setState({layers: layers});

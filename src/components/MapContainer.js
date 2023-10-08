@@ -225,6 +225,7 @@ export class MapContainer extends Component  {
         let prevlayer = null;
         if (index === 0) prevlayer = 'highlight-active-points.cold';
         else prevlayer = (index - 1).toString() + "_line";
+        if (style.id === 'symbol-label') prevlayer = 'highlight-active-points.cold';
         newstyle.id = index.toString() + "_" + newstyle.id;
         if (!visible) {
             if (index === this.props.selected) {
@@ -244,7 +245,8 @@ export class MapContainer extends Component  {
                 }
                 if (newstyle['type'] === 'symbol') {
                     newstyle['paint'] = {
-                        "icon-opacity": 0.1
+                        "icon-opacity": 0.1,
+                        "text-opacity": 0.1
                     }
                 }
             } else {
@@ -263,7 +265,8 @@ export class MapContainer extends Component  {
                 }
                 if (newstyle['type'] === 'symbol') {
                     newstyle['paint'] = {
-                        "icon-opacity": 0
+                        "icon-opacity": 0,
+                        "text-opacity": 0
                     }
                 }
             }
@@ -309,7 +312,10 @@ export class MapContainer extends Component  {
         newstyle['transition'] = {duration: 1000, delay: 0}
         if (newstyle['type'] === 'line') newstyle['paint']['line-opacity'] = 0;
         if (newstyle['type'] === 'fill') newstyle['paint']['fill-opacity'] = 0;
-        if (newstyle['type'] === 'symbol') newstyle['paint']['icon-opacity'] = 0;
+        if (newstyle['type'] === 'symbol') {
+            newstyle['paint']['text-opacity'] = 0;
+            newstyle['paint']['icon-opacity'] = 0;
+        }
 
         return {prevlayer: prevlayer, style: newstyle};
     }

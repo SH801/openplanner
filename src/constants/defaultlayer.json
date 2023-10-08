@@ -6,54 +6,114 @@
         "features": []
     },
     "styles": [
-        {
-          "type": "line",
-          "filter": [
-              "all"
-          ],
-          "id": "line",
-          "paint": {
-            "line-color": "#000000",
-            "line-width": 1,
-            "line-opacity": 1
-          }
-        },
-        {
-          "type": "fill",
-          "filter": [
-            "all",
-            [
-                "==",
-                "$type",
-                "Polygon"
-            ]                
-          ], 
-          "id": "fill",
-          "paint": {
-            "fill-color": "#FFFFFF",
-            "fill-opacity": 0.5
-          }
-        },
-        {
-            "type": "symbol",
-            "filter": [
-                "all",
-                [
-                    "==",
-                    "$type",
-                    "Point"
-                ]                
-            ],
-            "id": "symbol",
-            "layout": {
-                "icon-image": "internal-default", 
-                "icon-size": 0.1,
-                "icon-anchor": "bottom",
-                "icon-allow-overlap": true
-            },
-            "paint": {
-                "icon-opacity": 1
-            }                
+      {
+        "type": "line",
+        "filter": [
+            "all"
+        ],
+        "id": "line",
+        "paint": {
+          "line-color": "#000000",
+          "line-width": 1,
+          "line-opacity": 1
         }
+      },
+      {
+        "type": "fill",
+        "filter": [
+          "all",
+          [
+              "==",
+              "$type",
+              "Polygon"
+          ]                
+        ], 
+        "id": "fill",
+        "paint": {
+          "fill-color": "#FFFFFF",
+          "fill-opacity": 0.5
+        }
+      },
+      {
+          "type": "symbol",
+          "filter": [
+              "all",
+              [
+                  "==",
+                  "$type",
+                  "Point"
+              ],
+              [
+                "!=",
+                "type",
+                "label"
+              ]           
+          ],
+          "id": "symbol-default",
+          "layout": {
+              "icon-image": "internal-default", 
+              "icon-size": 0.1,
+              "icon-anchor": "bottom",
+              "icon-allow-overlap": true
+          },
+          "paint": {
+              "icon-opacity": 1
+          }                
+      },
+      {
+        "type": "symbol",
+        "filter": [
+          "all",
+          [
+            "==",
+            "$type",
+            "Point"
+          ],
+          [
+            "==",
+            "type",
+            "label"
+          ]
+        ],
+        "id": "symbol-label",
+        "layout": {
+          "text-field": [
+            "format",
+            ["get", "title"], { 
+              "font-scale": 1.2 
+            },
+            "\n", {
+            },
+            ["get", "content"], {
+              "font-scale": 0.8,
+              "text-font": [
+                "literal",
+                ["Noto Sans Regular"]
+              ]
+            }
+          ],
+          "text-size": 20, 
+          "text-line-height": 1.1,
+          "text-offset": [0, -1],
+          "text-font": ["Noto Sans Regular"],
+          "text-rotation-alignment": "auto",
+          "text-allow-overlap": true,
+          "text-anchor": "bottom",
+          "text-justify": "left",
+          "text-pitch-alignment": "viewport",
+          "icon-text-fit": "both",
+          "icon-text-fit-padding": [20, 20, 20, 20],
+          "icon-image": "internal-white",
+          "icon-allow-overlap": true
+        },
+        "paint": {
+          "text-color": "#222222", 
+          "text-halo-blur": 10,
+          "text-halo-color": "#FFFFFF00",
+          "text-halo-width": 5,
+          "text-opacity": 1,
+          "icon-opacity": 0.7
+        }
+      }
     ]
 }

@@ -36,7 +36,8 @@ class LayerProperties extends Component {
         this.closeModal();
     }
 
-    submitForm = () => {
+    submitForm = (event) => {
+        event.preventDefault();
         this.props.submit();
     }
 
@@ -136,7 +137,7 @@ class LayerProperties extends Component {
                     <IonButton onClick={() => this.onWillDismiss()}>Cancel</IonButton>
                     </IonButtons>
                     <IonButtons slot="end">
-                    <IonButton strong={true} type="submit" onClick={() => this.submitForm()}>
+                    <IonButton strong={true} type="submit" onClick={this.submitForm}>
                         Save changes
                     </IonButton>
                     </IonButtons>
