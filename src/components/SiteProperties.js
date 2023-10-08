@@ -114,8 +114,7 @@ class SiteProperties extends Component {
                                     handler: () => {this.closeEntityAlert()},
                                     },
                                 ]}
-                                onDidDismiss={null}
-                            ></IonAlert>
+                                onDidDismiss={null} />
 
                         </IonItem>
 

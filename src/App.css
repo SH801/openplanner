@@ -67,10 +67,30 @@
   margin: 5px 0px 0px 5px;
 }
 
+#slider-round {
+  height: 10px;
+}
+
+#slider-round .noUi-connect {
+  background: #c0392b;
+}
+
+#slider-round .noUi-handle {
+  height: 18px;
+  width: 18px;
+  top: -5px;
+  right: -9px; /* half the width */
+  border-radius: 9px;
+}
+
+.noUi-handle:before, .noUi-handle:after {
+  display: none!important;
+}
+
 .animation-track-header-zoom {
   position: absolute;
-  top: -4px;
-  left: 110px;
+  top: 12px;
+  left: 115px;
   width: 45px
 }
 

@@ -24,7 +24,6 @@ import {
   IonToolbar,
   IonAlert,
   IonInput,
-  IonRange
 } from '@ionic/react';
 import { 
   people,
@@ -41,12 +40,12 @@ import {
   pause,
   stop,
   stopCircleOutline,
-  textOutline
 } from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
-import { ContentState, convertToRaw } from 'draft-js';
+import { bbox } from '@turf/turf';
+import { ContentState } from 'draft-js';
 import { EditorState } from 'draft-js';
-import draftToHtml from 'draftjs-to-html';
+// import draftToHtml from 'draftjs-to-html';
 import htmlToDraft from 'html-to-draftjs';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
@@ -54,9 +53,18 @@ import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import queryString from "query-string";
 import { v4 as uuidv4 } from 'uuid';
 import { Timeline } from '@xzdarcy/react-timeline-editor';
-import white from '../images/white.png';
+import Nouislider from "nouislider-react";
+import "nouislider/distribute/nouislider.css";
 
-import { EXTERNAL_HOMEPAGE } from "../constants";
+import { 
+  DEFAULT_ANIMATION_PITCH, 
+  ANIMATION_INITIAL_HOLD, 
+  ANIMATION_INITIAL_DELAY, 
+  ANIMATION_LAYER_DELAY, 
+  ANIMATION_LAYER_LINGER, 
+  ANIMATION_CAMERA_TRANSITION,
+  EXTERNAL_HOMEPAGE 
+} from "../constants";
 import CameraProperties from './CameraProperties';
 import SiteProperties from './SiteProperties';
 import Layer from './Layer';
@@ -95,6 +103,7 @@ class Editor extends Component {
     cameratime: null,
     recording: false,
     mediarecorder: null,
+    animationdefaultalertshow: false,
   }
 
   constructor(props) {
@@ -188,7 +197,8 @@ class Editor extends Component {
       this.timelineRef.current.setScrollLeft(left);
       if (time >= endTime) this.recordingStop();
     });
-    this.animationNextCameraPosition();                        
+    if (this.animationGetTime() === 0) this.animationCameraInitial();
+    if (this.animationGetCameraForTime(0) === null) this.animationNextCameraPosition();                        
     if (endTime !== 0) this.timelineRef.current.play({toTime: endTime});
   }
 
@@ -204,7 +214,6 @@ class Editor extends Component {
     this.timelineRef.current.setTime(0);
     this.timelineRef.current.reRender();
     this.animationCameraInitial();
-    
   }
   
   updateAnimationData = (layers) => {
@@ -237,23 +246,40 @@ class Editor extends Component {
     return lookup;
   }
 
+  animationGetCameraForTime = (time) => {
+    for(let i = 0; i < this.state.animationdata[0].actions.length; i++) {
+      var action = this.state.animationdata[0].actions[i];
+      if ((action.start <= time) && (action.end >= time)) {
+        return this.state.camerapositions[action.effectId];
+      }
+    }
+    return null;
+  }
+
   animationCameraInitial = () => {
-    var useinitialsettings = true;
-    var checkfields = ['zoom', 'pitch', 'bearing', 'lat', 'lng'];
-    for(let i = 0; i < checkfields.length; i++) {
-      if (!(checkfields[i] in this.props.global.data)) useinitialsettings = false;
+
+    // Check if edit point at time zero for camera
+    var cameraposition = this.animationGetCameraForTime(0);
+    if (cameraposition === null) {
+      // If no edit point, use saved position
+      var useinitialsettings = true;
+      var checkfields = ['zoom', 'pitch', 'bearing', 'lat', 'lng'];
+      for(let i = 0; i < checkfields.length; i++) {
+        if (!(checkfields[i] in this.props.global.data)) useinitialsettings = false;
+      }
+
+      if (useinitialsettings) {
+        cameraposition = {
+          lat: this.props.global.data['lat'],
+          lng: this.props.global.data['lng'],
+          zoom: this.props.global.data['zoom'],
+          pitch: this.props.global.data['pitch'],
+          bearing: this.props.global.data['bearing']
+        }
+      }
     }
 
-    if (useinitialsettings) {
-      var cameraposition = {
-        lat: this.props.global.data['lat'],
-        lng: this.props.global.data['lng'],
-        zoom: this.props.global.data['zoom'],
-        pitch: this.props.global.data['pitch'],
-        bearing: this.props.global.data['bearing']
-      }
-      this.cameraPropertiesSetLive(cameraposition);
-    }
+    if (cameraposition !== null) this.cameraPropertiesSetLive(cameraposition);
   }
 
   animationGetNextCameraAction = (time) => {
@@ -286,7 +312,6 @@ class Editor extends Component {
       var nextcameraposition = this.state.camerapositions[nextcameraaction.id]
       if (this.state.map) {
         var center = {lat: nextcameraposition.lat, lng: nextcameraposition.lng};
-        console.log("animationNextCameraPosition");
         this.state.map.flyTo({
           center: center,
           bearing: nextcameraposition.bearing, 
@@ -295,7 +320,7 @@ class Editor extends Component {
           essential: true,
           duration: (timetillnextaction * 1000),
           animate: true,
-        })
+        });
       }
     }
   }
@@ -344,9 +369,18 @@ class Editor extends Component {
             var sourcestyles = this.state.layers[layerindex].styles;
             for (let i = 0; i < sourcestyles.length; i++) {
               var layerid = layerindex.toString() + "_" + sourcestyles[i].id;
-              var paintopacityproperty = sourcestyles[i].id + '-opacity';
-              if (paintopacityproperty === 'symbol-opacity') paintopacityproperty = 'icon-opacity';
-              this.state.map.setPaintProperty(layerid, paintopacityproperty, sourcestyles[i]['paint'][paintopacityproperty]);
+              switch (sourcestyles[i].id) {
+                case "symbol-default":
+                  this.state.map.setPaintProperty(layerid, "icon-opacity", sourcestyles[i]['paint']["icon-opacity"]);
+                  break;
+                case "symbol-label":
+                  this.state.map.setPaintProperty(layerid, "icon-opacity", sourcestyles[i]['paint']["icon-opacity"]);
+                  this.state.map.setPaintProperty(layerid, "text-opacity", sourcestyles[i]['paint']["text-opacity"]);
+                  break;
+                default:
+                  this.state.map.setPaintProperty(layerid, sourcestyles[i].id + "-opacity", sourcestyles[i]['paint'][sourcestyles[i].id + "-opacity"]);
+                  break;
+              }
             }
           }
         },
@@ -358,9 +392,18 @@ class Editor extends Component {
             var sourcestyles = this.state.layers[layerindex].styles;
             for (let i = 0; i < sourcestyles.length; i++) {
               var layerid = layerindex.toString() + "_" + sourcestyles[i].id;
-              var paintopacityproperty = sourcestyles[i].id + '-opacity';
-              if (paintopacityproperty === 'symbol-opacity') paintopacityproperty = 'icon-opacity';
-              this.state.map.setPaintProperty(layerid, paintopacityproperty, 0);
+              switch (sourcestyles[i].id) {
+                case "symbol-default":
+                  this.state.map.setPaintProperty(layerid, "icon-opacity", 0);
+                  break;
+                case "symbol-label":
+                  this.state.map.setPaintProperty(layerid, "icon-opacity", 0);
+                  this.state.map.setPaintProperty(layerid, "text-opacity", 0);
+                  break;
+                default:
+                  this.state.map.setPaintProperty(layerid, sourcestyles[i].id + "-opacity", 0);
+                  break;
+              }
             }
           }
         },
@@ -427,6 +470,121 @@ class Editor extends Component {
     return end + 0.5;
   }
 
+  animationCloseAlert = () => {
+    this.setState({animationdefaultalertshow: false, animationshow: true});
+  }
+
+  animationShowAlert = () => {
+    this.setState({animationdefaultalertshow: true})
+  }
+
+  animationCreateDefault = () => {
+    console.log("Creating default animation");
+
+    var camerapositions = {};
+    var animationdata = this.state.animationdata;
+    var animationeffects = this.state.animationeffects;
+    this.state.map.jumpTo({
+      center: this.state.map.getCenter(),
+      bearing: 0, 
+      pitch: DEFAULT_ANIMATION_PITCH, 
+      duration: 0,
+      animate: false,
+    });
+
+    var allfeatures = [];
+    this.state.layers.forEach((layer) => {
+      layer.featurecollection.features.forEach((feature) => {
+        allfeatures.push(feature);
+      });
+    });
+    var overallboundingbox = bbox({type: "FeatureCollection", features: allfeatures});
+    this.state.map.fitBounds(overallboundingbox, {animate: false});
+    
+    var initialCameraPositionId = this.getUniqueID();
+    var cameraposition = this.cameraPropertiesNow();
+    cameraposition.effectId = initialCameraPositionId;
+    camerapositions[initialCameraPositionId] = cameraposition;
+    animationeffects[initialCameraPositionId] = {id: initialCameraPositionId, name: "Camera animation", source: this.camerasource };
+    var newcameraaction = {
+      id: initialCameraPositionId,
+      start: 0,
+      end: ANIMATION_INITIAL_HOLD,
+      effectId: initialCameraPositionId
+    }   
+    animationdata[0].actions.push(newcameraaction);
+    var currenttime = ANIMATION_INITIAL_HOLD + ANIMATION_INITIAL_DELAY;
+    var animationdataindex = 1;
+    this.state.layers.forEach((layer) => {
+      var cameraactionid = this.getUniqueID();
+      var boundingbox = bbox(layer.featurecollection);
+      this.state.map.fitBounds(boundingbox, {animate: false});
+      cameraposition = this.cameraPropertiesNow();
+      cameraposition.effectId = cameraactionid;
+      camerapositions[cameraactionid] = cameraposition;
+      animationeffects[cameraactionid] = {id: cameraactionid, name: "Camera animation", source: this.camerasource };
+      newcameraaction = {
+        id: cameraactionid,
+        start: currenttime,
+        end: currenttime + (2 * ANIMATION_LAYER_DELAY) + ANIMATION_LAYER_LINGER,
+        effectId: cameraactionid
+      }   
+      animationdata[0].actions.push(newcameraaction);
+      currenttime += ANIMATION_LAYER_DELAY;
+      var layeractionid = this.getUniqueID();
+      var newlayeraction = {
+        id: layeractionid,
+        layerid: layer.id,
+        start: currenttime,
+        end: currenttime + ANIMATION_LAYER_LINGER,
+        effectId: "effect0"
+      }
+      animationdata[animationdataindex].actions.push(newlayeraction);
+      currenttime += ((2 * ANIMATION_LAYER_DELAY) + ANIMATION_LAYER_LINGER + ANIMATION_CAMERA_TRANSITION);
+      animationdataindex++;
+    });
+
+    // console.log(animationdata, camerapositions);
+    var endtime = this.getAnimationEnd();
+    var animationzoom = endtime / 3;
+    this.setState({
+      animationdata: animationdata, 
+      animationeffects: animationeffects, 
+      camerapositions: camerapositions,
+      animationzoom: animationzoom,
+      animationshow: true,
+      animationdefaultalertshow: false
+    });
+  }
+
+  siteAnimateToggle = () => {
+    // Save camera position if going into animation
+    // and return to it on leaving animation
+    var cameraproperties = this.cameraPropertiesSaved();
+    if (this.state.animationshow) {
+      this.cameraPropertiesSetLive(cameraproperties);
+      this.setState({animationshow: false});
+    }
+    else {
+      cameraproperties = this.cameraPropertiesNow();
+      var data = this.props.global.data;
+      data['lat'] = cameraproperties.lat;
+      data['lng'] = cameraproperties.lng;
+      data['zoom'] = cameraproperties.zoom;
+      data['pitch'] = cameraproperties.pitch;
+      data['bearing'] = cameraproperties.bearing;
+      this.props.setGlobalState({data: data});
+
+      var trackshaveactions = false;
+      this.state.animationdata.forEach((track) => {
+        if (track.actions.length !== 0) trackshaveactions = true;
+      })
+
+      if (trackshaveactions) this.setState({animationshow: true});
+      else this.animationShowAlert();
+    }
+  }
+
   initialSitePropertiesShow = () => {
     var siteproperties = {
       name: this.props.global.name,
@@ -458,26 +616,6 @@ class Editor extends Component {
     this.setState({sitepropertiesshow: false});
   }
 
-  siteAnimateToggle = () => {
-    // Save camera position if going into animation
-    // and return to it on leaving animation
-    var cameraproperties = this.cameraPropertiesSaved();
-    if (this.state.animationshow) {
-      this.cameraPropertiesSetLive(cameraproperties);
-    }
-    else {
-      cameraproperties = this.cameraPropertiesNow();
-      var data = this.props.global.data;
-      data['lat'] = cameraproperties.lat;
-      data['lng'] = cameraproperties.lng;
-      data['zoom'] = cameraproperties.zoom;
-      data['pitch'] = cameraproperties.pitch;
-      data['bearing'] = cameraproperties.bearing;
-      this.props.setGlobalState({data: data});
-    }
-    this.setState({animationshow: !this.state.animationshow});
-  }
-
   cameraPropertiesNow = () => {
     var center = this.state.map.getCenter();
     return {
@@ -503,7 +641,6 @@ class Editor extends Component {
 
   cameraPropertiesSetLive = (cameraposition) => {
     var center = {lat: cameraposition.lat, lng: cameraposition.lng};
-    console.log("cameraPropertiesSetLive");
     this.state.map.flyTo({
       center: center,
       bearing: cameraposition.bearing, 
@@ -613,6 +750,7 @@ class Editor extends Component {
     data.animationeffects = this.state.animationeffects;
     data.camerapositions = this.state.camerapositions;
     data.animationzoom = this.state.animationzoom;
+console.log(data.camerapositions);
     var plan = {
       id: this.props.global.id,
       name: this.props.global.name,
@@ -940,7 +1078,7 @@ class Editor extends Component {
       if (currlayer.iconinternal === "") currlayer.iconinternal = "default";
 
       for (let i = 0; i < currlayer.styles.length; i++) {
-        console.log(currlayer.styles[i]);
+
         if (currlayer.styles[i]['type'] === 'line') {
           currlayer.styles[i]['paint']['line-color'] = this.state.layerproperties.colorline;
           currlayer.styles[i]['paint']['line-width'] = parseInt(this.state.layerproperties.widthline);
@@ -981,12 +1119,18 @@ class Editor extends Component {
         for(let i = 0; i < features.length; i++) {
           if (features[i].properties['type'] === 'label') {
             currlayer.featurecollection.features[i]['properties'].title = currlayer.title;
-            currlayer.featurecollection.features[i]['properties'].content = currlayer.content;
+            currlayer.featurecollection.features[i]['properties'].content = "\n" + currlayer.content;
             foundfeature = true;
           }
         }
         if (!foundfeature) {
           var centre = this.state.map.getCenter();
+          if (currlayer.featurecollection.features.length !== 0) {
+            var boundingbox = bbox(currlayer.featurecollection);
+            var middlelat = (boundingbox[1] + boundingbox[3]) / 2;
+            var rightlng = boundingbox[2];
+            centre = {lng: rightlng + 0.01, lat: middlelat};
+          }
           var newfeatureid = this.getUniqueID();
           var newfeature = {
             "id": newfeatureid,
@@ -995,7 +1139,7 @@ class Editor extends Component {
               "id": newfeatureid,
               "type": "label",
               "title": currlayer.title,
-              "content": currlayer.content
+              "content": "\n" + currlayer.content
             },
             "geometry": {
               "coordinates": [
@@ -1004,7 +1148,7 @@ class Editor extends Component {
               ],
               "type": "Point"
             }
-          }
+          };
           currlayer.featurecollection.features.push(newfeature);   
         }
         this.mapdraw.set(currlayer.featurecollection);
@@ -1261,7 +1405,7 @@ class Editor extends Component {
 
         <IonHeader>
           <IonToolbar>
-            <IonItem>                            
+            <IonItem>     
               <IonInput value={this.props.global.name} label="Plan name" name="name" onIonChange={this.onNameChange} type="text" placeholder="Enter plan name" /> 
               <span onClick={() => this.sitePropertiesShow()} style={{width: "50%", textAlign: "right"}}>
                 {(this.props.global.entity === null) ? null : this.props.global.entity.name }
@@ -1278,6 +1422,23 @@ class Editor extends Component {
               <IonButton title="Animate plan" onClick={() => this.siteAnimateToggle()}>
                 <IonIcon size="large" icon={videocamOutline} />
               </IonButton>
+
+              <IonAlert
+                  isOpen={this.state.animationdefaultalertshow}
+                  header="Create default animation?"
+                  buttons={[
+                      {
+                      text: 'Cancel',
+                      role: 'cancel',
+                      handler: () => {this.animationCloseAlert()},
+                      },
+                      {
+                      text: 'OK',
+                      role: 'confirm',
+                      handler: () => {this.animationCreateDefault()},
+                      },
+                  ]}
+                  onDidDismiss={null} />
 
               <IonButton title="Site settings" onClick={() => this.sitePropertiesShow()}>
                 <IonIcon icon={settingsOutline} />
@@ -1342,9 +1503,7 @@ class Editor extends Component {
                 </div>
 
                 {this.state.animationshow ? (
-                  <div className={"animation-editor"} onLoad={() => {
-                    console.log("animation-editor loaded");
-                  }}>
+                  <div className={"animation-editor"}>
                     
                     <div className={"animation-tracks-header"}>
                       <IonIcon color={this.state.recording ? "danger" : "light"} title="Record" onClick={this.recordingToggle} icon={stopCircleOutline} />
@@ -1368,13 +1527,13 @@ class Editor extends Component {
                       })}
                     </div>
                     <div className={"animation-track-header-zoom"} >
-                      <IonRange 
-                        title="Change timeline zoom" 
-                        aria-label="Zoom" 
-                        color="medium" 
-                        value={this.state.animationzoom} 
-                        onIonChange={(e) => this.onChangeAnimationZoom(e.target.value)} 
-                        ticks={false} snaps={true} min={1} max={60} step={-1} />
+                      <Nouislider 
+                        id="slider-round" 
+                        onUpdate={(e)=> {this.onChangeAnimationZoom(e[0]);}} 
+                        // style={{width: "300px"}} 
+                        range={{ min: 1, max: 60 }} 
+                        step={-1} 
+                        start={[this.state.animationzoom]} connect />                       
                     </div>
 
                     <Timeline

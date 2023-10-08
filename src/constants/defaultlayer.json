@@ -80,7 +80,7 @@
           "text-field": [
             "format",
             ["get", "title"], { 
-              "font-scale": 1.2 
+              "font-scale": 1.2
             },
             "\n", {
             },
@@ -93,7 +93,7 @@
             }
           ],
           "text-size": 20, 
-          "text-line-height": 1.1,
+          "text-line-height": 1.2,
           "text-offset": [0, -1],
           "text-font": ["Noto Sans Regular"],
           "text-rotation-alignment": "auto",
