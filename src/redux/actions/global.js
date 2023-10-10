@@ -24,33 +24,6 @@ export const setGlobalState = (object) => {
     }
 }
 
-// Code for authenticated connections
-
-// const csrftoken = Cookies.get('csrftoken');
-
-// console.log(csrftoken);
-
-// let headers = {'X-CSRFToken': csrftoken};
-// let body = '';
-
-// return fetch(API_URL + "/test/", {headers, method: "GET", credentials: 'include'})
-//   .then(res => {
-//     if (res.status < 500) {
-//       return res.json().then(data => {
-//         return {status: res.status, data};
-//       })
-//     } else {
-//       console.log("Server Error!");
-//       throw res;
-//     }
-//   })
-//   .then(res => {
-//     if (res.status === 200) {
-
-//     }         
-//   })
-
-
 /**
  * fetchEntity
  * 

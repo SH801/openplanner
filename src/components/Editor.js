@@ -30,6 +30,7 @@ import {
   trashOutline, 
   duplicateOutline, 
   addOutline, 
+  analyticsOutline,
   pushOutline, 
   downloadOutline,
   videocamOutline, 
@@ -104,6 +105,7 @@ class Editor extends Component {
     recording: false,
     mediarecorder: null,
     animationdefaultalertshow: false,
+    maxbounds: null,
   }
 
   constructor(props) {
@@ -190,6 +192,8 @@ class Editor extends Component {
 
   animationStart = () => {
     var endTime = this.getAnimationEnd();
+    this.setState({maxbounds: this.state.map.getMaxBounds()});
+    this.state.map.setMaxBounds(null);
     const engine = this.timelineRef.current;
     engine.listener.on('setTimeByTick', ({ time }) => {
       const autoScrollFrom = 500;
@@ -209,6 +213,7 @@ class Editor extends Component {
   
   animationStop = () => {
     this.recordingStop();
+    this.state.map.setMaxBounds(this.state.maxbounds);
     this.timelineRef.current.setScrollLeft(0);
     this.timelineRef.current.pause(0);
     this.timelineRef.current.setTime(0);
@@ -750,7 +755,6 @@ class Editor extends Component {
     data.animationeffects = this.state.animationeffects;
     data.camerapositions = this.state.camerapositions;
     data.animationzoom = this.state.animationzoom;
-console.log(data.camerapositions);
     var plan = {
       id: this.props.global.id,
       name: this.props.global.name,
@@ -988,6 +992,18 @@ console.log(data.camerapositions);
       this.updateAnimationData(layers);      
       // this.setSelected(layers.length - 1);
     }
+  }
+
+  layerCloneBackground = (event) => {
+    this.mapdrawDeactivate();
+    var layers = [...this.state.layers];
+    var defaultlayer = require("../constants/defaultlayer.json");
+    defaultlayer.id = this.getUniqueID();
+    defaultlayer.name = "Background";
+    defaultlayer.featurecollection.features = this.props.global.entity.geojson.features;
+    layers.push({...defaultlayer});
+    this.setState({layers: layers});    
+    this.updateAnimationData(layers);
   }
 
   layerDelete = (event) => {
@@ -1627,10 +1643,11 @@ console.log(data.camerapositions);
                       ]}
                       onDidDismiss={null}
                     ></IonAlert>
-
-
                     <IonButton title="Download all layers to GeoJSON" onClick={() => this.GeoJSONDownload()}>
                       <IonIcon icon={downloadOutline} />
+                    </IonButton>
+                    <IonButton title="Clone background as editable layer" onClick={() => this.layerCloneBackground()}>
+                      <IonIcon icon={analyticsOutline} />
                     </IonButton>
                   </IonButtons>
                   <IonButtons slot="end">
