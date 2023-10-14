@@ -79,6 +79,7 @@ export class MapContainer extends Component  {
       selectedlayer: null,
       interactiveLayerIds: [],
       mode: null,
+      maploaded: false,
     }
     
     constructor(props) {
@@ -210,6 +211,8 @@ export class MapContainer extends Component  {
             this.props.mapdraw.add(feature);
             this.props.onDataChange(data, this.state.mode);
         });
+
+        this.setState({maploaded: true});
     }
   
     getPrevLayer = (index) => {
@@ -392,9 +395,8 @@ export class MapContainer extends Component  {
             <GeolocateControl position="top-left" />  
             <NavigationControl visualizePitch={true} position="top-left" />     
 
-            {(this.props.global.entity !== null) ? (
+            {((this.props.global.entity !== null) && (this.state.maploaded)) ? (
                 <>
-
                 {(this.props.animationshow) ? (
                     <>
                     {this.props.layers.map((layer, index) => {

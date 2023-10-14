@@ -16,5 +16,6 @@ export const initialStateGlobal = {
     entityid: null,
     entity: null,
     data: [],
+    funding: null,
 };
 

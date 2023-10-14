@@ -37,6 +37,20 @@
   }
 }
 
+.alert-wrapper{
+  max-width: unset !important;
+  width: auto !important;
+}
+
+.alert-radio-label.sc-ion-alert-md  {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.alert-tappable.sc-ion-alert-md  {
+  min-height: unset !important;
+}
+
 .animation-editor {
   position: absolute;
   bottom: 0px;
@@ -158,9 +172,13 @@ input[type="color"] {
   padding-right: 10px;
 }
 
+#funding-modal {
+  --width: 90%!important;
+  --height: 90%!important;
+}
+
 #cameraproperties-modal {
   --max-width: 500px!important;
-
 }
 
 #siteproperties-modal {

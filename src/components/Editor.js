@@ -41,6 +41,7 @@ import {
   pause,
   stop,
   stopCircleOutline,
+  calculatorOutline
 } from 'ionicons/icons';
 import { createGesture } from '@ionic/react';
 import { bbox } from '@turf/turf';
@@ -66,6 +67,7 @@ import {
   ANIMATION_CAMERA_TRANSITION,
   EXTERNAL_HOMEPAGE 
 } from "../constants";
+import Funding from './Funding';
 import CameraProperties from './CameraProperties';
 import SiteProperties from './SiteProperties';
 import Layer from './Layer';
@@ -106,6 +108,7 @@ class Editor extends Component {
     mediarecorder: null,
     animationdefaultalertshow: false,
     maxbounds: null,
+    fundingshow: false,
   }
 
   constructor(props) {
@@ -136,11 +139,21 @@ class Editor extends Component {
       styles: this.mapdrawStyles
     });
 
+    this.props.fetchFunding().then(() => {
+    });
   }
 
   getUniqueID = () => {
     let id = uuidv4();
     return id.replaceAll('-', '');
+  }
+
+  fundingShow = () => {
+    this.setState({fundingshow: true});
+  }
+
+  fundingClose = () => {
+    this.setState({fundingshow: false});
   }
 
   recordingStart = () => {
@@ -1001,6 +1014,11 @@ class Editor extends Component {
     defaultlayer.id = this.getUniqueID();
     defaultlayer.name = "Background";
     defaultlayer.featurecollection.features = this.props.global.entity.geojson.features;
+    for(let i = 0; i < defaultlayer.featurecollection.features.length; i++) {
+      if (!('properties' in defaultlayer.featurecollection.features[i])) {
+        defaultlayer.featurecollection.features[i].properties = {};
+      }
+    }
     layers.push({...defaultlayer});
     this.setState({layers: layers});    
     this.updateAnimationData(layers);
@@ -1027,6 +1045,7 @@ class Editor extends Component {
     let iconsize = 100;
 
     layerproperties.name = layer.name;
+    layerproperties.funding = (layer.funding === undefined) ? null : layer.funding;
     if (layer.title === undefined) layerproperties.title = '';
     else layerproperties.title = layer.title;
     if (layer.content === undefined) layerproperties.content = '';
@@ -1036,6 +1055,7 @@ class Editor extends Component {
     if (layer.iconinternal === undefined) layerproperties.iconinternal = '';
     else layerproperties.iconinternal = layer.iconinternal;
 
+    
     const contentBlock = htmlToDraft(layerproperties.content);
     if (contentBlock) {
       const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
@@ -1089,6 +1109,7 @@ class Editor extends Component {
       currlayer.title = this.state.layerproperties.title;
       // currlayer.content = draftToHtml(convertToRaw(this.state.editorState.getCurrentContent()));
       currlayer.content = this.state.editorState.getCurrentContent().getPlainText('\n');
+      currlayer.funding = this.state.layerproperties.funding;
       currlayer.iconurl = this.state.layerproperties.iconurl;
       currlayer.iconinternal = this.state.layerproperties.iconinternal;
       if (currlayer.iconinternal === "") currlayer.iconinternal = "default";
@@ -1258,6 +1279,7 @@ class Editor extends Component {
             else defaultlayer.id = this.getUniqueID(); 
             if (featurecollections[i]['properties']['name'] !== undefined) defaultlayer.name = featurecollections[i]['properties']['name'];
             else defaultlayer.name = "Imported layer";
+            if (featurecollections[i]['properties']['funding'] !== undefined) defaultlayer.funding = featurecollections[i]['properties']['funding'];
             if (featurecollections[i]['properties']['visible'] !== undefined) defaultlayer.visible = featurecollections[i]['properties']['visible'];
             if (featurecollections[i]['properties']['title'] !== undefined) defaultlayer.title = featurecollections[i]['properties']['title'];
             if (featurecollections[i]['properties']['content'] !== undefined) defaultlayer.content = featurecollections[i]['properties']['content'];
@@ -1275,6 +1297,7 @@ class Editor extends Component {
             // Need to implement iconurl so it loads image on layer with correct layer id
             delete featurecollections[i]['properties']['id'];
             delete featurecollections[i]['properties']['name'];
+            delete featurecollections[i]['properties']['funding'];
             delete featurecollections[i]['properties']['visible'];
             delete featurecollections[i]['properties']['title'];
             delete featurecollections[i]['properties']['content'];
@@ -1301,6 +1324,7 @@ class Editor extends Component {
           var allfeatures = [];      
           if (featurecollections[0]['properties']['name'] !== undefined) defaultlayer.name = featurecollections[0]['properties']['name'];
           else defaultlayer.name = "Imported layer";
+          if (featurecollections[0]['properties']['funding'] !== undefined) defaultlayer.name = featurecollections[0]['properties']['funding'];
           if (featurecollections[0]['properties']['id'] !== undefined) defaultlayer.id = featurecollections[0]['properties']['id'];
           else defaultlayer.id = this.getUniqueID(); 
           if (featurecollections[0]['properties']['visible'] !== undefined) defaultlayer.visible = featurecollections[0]['properties']['visible'];
@@ -1321,6 +1345,7 @@ class Editor extends Component {
           for(let i = 0; i < featurecollections.length; i++) {
             delete featurecollections[i]['properties']['id'];
             delete featurecollections[i]['properties']['name'];
+            delete featurecollections[i]['properties']['funding'];
             delete featurecollections[i]['properties']['visible'];
             delete featurecollections[i]['properties']['title'];
             delete featurecollections[i]['properties']['content'];
@@ -1361,6 +1386,7 @@ class Editor extends Component {
       var currlayer = layers[i];
       var featurecollection = JSON.parse(JSON.stringify(currlayer.featurecollection));
       properties.name = currlayer.name;
+      properties.funding = currlayer.funding;
       properties.visible = currlayer.visible;
       properties.title = currlayer.title;
       properties.content = currlayer.content;
@@ -1435,7 +1461,11 @@ class Editor extends Component {
                 </IonButton>
                 ) : null }
 
-              <IonButton title="Animate plan" onClick={() => this.siteAnimateToggle()}>
+              <IonButton title="Show/hide financial calculations" onClick={() => this.fundingShow()}>
+                <IonIcon size="large" icon={calculatorOutline} />
+              </IonButton>
+
+              <IonButton title="Show/hide animation" onClick={() => this.siteAnimateToggle()}>
                 <IonIcon size="large" icon={videocamOutline} />
               </IonButton>
 
@@ -1491,6 +1521,13 @@ class Editor extends Component {
                 state={this.state.siteproperties} 
                 set={this.sitePropertiesSet} />
 
+          {this.state.fundingshow ? (
+            <Funding 
+                  isOpen={this.state.fundingshow} 
+                  close={this.fundingClose} 
+                  funding={this.props.global.funding}
+                  layers={this.state.layers} />
+          ) : null}
 
           <CameraProperties 
                 isOpen={this.state.camerapropertiesshow} 
@@ -1505,73 +1542,73 @@ class Editor extends Component {
 
             <div id="mainpane" style={{ height: "100vh", position: "relative" }}>
                 <div style={{ height: "100%" }}>
-                    <MapContainer 
-                      onDataChange={this.onDataChange}
-                      onSelectionChange={this.onSelectionChange}
-                      onSetSelected={this.onSetSelected}
-                      onSetMap={this.onSetMap}
-                      mapdraw={this.mapdraw} 
-                      recording={this.state.recording}
-                      selectDefaultLayer={this.selectDefaultLayer}
-                      selected={this.state.selected} 
-                      layers={this.state.layers} 
-                      animationshow={this.state.animationshow} />
-                </div>
+                  <MapContainer 
+                    onDataChange={this.onDataChange}
+                    onSelectionChange={this.onSelectionChange}
+                    onSetSelected={this.onSetSelected}
+                    onSetMap={this.onSetMap}
+                    mapdraw={this.mapdraw} 
+                    recording={this.state.recording}
+                    selectDefaultLayer={this.selectDefaultLayer}
+                    selected={this.state.selected} 
+                    layers={this.state.layers} 
+                    animationshow={this.state.animationshow} />
+              </div>
 
-                {this.state.animationshow ? (
-                  <div className={"animation-editor"}>
-                    
-                    <div className={"animation-tracks-header"}>
-                      <IonIcon color={this.state.recording ? "danger" : "light"} title="Record" onClick={this.recordingToggle} icon={stopCircleOutline} />
-                      <IonIcon color="medium" title="Play" onClick={this.animationStart} icon={play} />
-                      <IonIcon color="medium" title="Pause" onClick={this.animationPause} icon={pause} />
-                      <IonIcon color="medium" title="Stop" onClick={this.animationStop} icon={stop} />
-                    </div>
-
-                    <div className={"animation-tracks"} ref={this.tracksRef} 
-                      onScroll={(e) => {this.timelineRef.current.setScrollTop(e.target.scrollTop);}} >
-                        <div className={"animation-track-row"} >
-                          <div className={"animation-track-text"}>Camera</div>
-                        </div>
-
-                      {this.state.layers.map((layer, index) => {
-                        return (
-                          <div key={index} className={"animation-track-row"} >
-                            <div className={"animation-track-text"}>{layer.name}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className={"animation-track-header-zoom"} >
-                      <Nouislider 
-                        id="slider-round" 
-                        onUpdate={(e)=> {this.onChangeAnimationZoom(e[0]);}} 
-                        // style={{width: "300px"}} 
-                        range={{ min: 1, max: 60 }} 
-                        step={-1} 
-                        start={[this.state.animationzoom]} connect />                       
-                    </div>
-
-                    <Timeline
-                      ref={this.timelineRef}
-                      scale={this.state.animationzoom}
-                      scaleWidth={scaleWidth}
-                      startLeft={startLeft}                      
-                      onChange={this.setAnimationData} 
-                      style = {{height: "100%", flex: "1 1 auto"}}
-                      editorData={this.state.animationdata}
-                      effects={this.state.animationeffects}
-                      autoScroll={true}
-                      onScroll={({ scrollTop }) => {this.tracksRef.current.scrollTop = scrollTop;}}
-                      onDoubleClickRow={(e, {row, time}) => {
-                        console.log(e);
-                        this.onDoubleClick = true;
-                        e.nativeEvent.preventDefault();
-                        this.addAnimationData(e, row, time);
-                        return true;
-                      }}
-                    />
+              {this.state.animationshow ? (
+                <div className={"animation-editor"}>
+                  
+                  <div className={"animation-tracks-header"}>
+                    <IonIcon color={this.state.recording ? "danger" : "light"} title="Record" onClick={this.recordingToggle} icon={stopCircleOutline} />
+                    <IonIcon color="medium" title="Play" onClick={this.animationStart} icon={play} />
+                    <IonIcon color="medium" title="Pause" onClick={this.animationPause} icon={pause} />
+                    <IonIcon color="medium" title="Stop" onClick={this.animationStop} icon={stop} />
                   </div>
+
+                  <div className={"animation-tracks"} ref={this.tracksRef} 
+                    onScroll={(e) => {this.timelineRef.current.setScrollTop(e.target.scrollTop);}} >
+                      <div className={"animation-track-row"} >
+                        <div className={"animation-track-text"}>Camera</div>
+                      </div>
+
+                    {this.state.layers.map((layer, index) => {
+                      return (
+                        <div key={index} className={"animation-track-row"} >
+                          <div className={"animation-track-text"}>{layer.name}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className={"animation-track-header-zoom"} >
+                    <Nouislider 
+                      id="slider-round" 
+                      onUpdate={(e)=> {this.onChangeAnimationZoom(e[0]);}} 
+                      // style={{width: "300px"}} 
+                      range={{ min: 1, max: 60 }} 
+                      step={-1} 
+                      start={[this.state.animationzoom]} connect />                       
+                  </div>
+
+                  <Timeline
+                    ref={this.timelineRef}
+                    scale={this.state.animationzoom}
+                    scaleWidth={scaleWidth}
+                    startLeft={startLeft}                      
+                    onChange={this.setAnimationData} 
+                    style = {{height: "100%", flex: "1 1 auto"}}
+                    editorData={this.state.animationdata}
+                    effects={this.state.animationeffects}
+                    autoScroll={true}
+                    onScroll={({ scrollTop }) => {this.tracksRef.current.scrollTop = scrollTop;}}
+                    onDoubleClickRow={(e, {row, time}) => {
+                      console.log(e);
+                      this.onDoubleClick = true;
+                      e.nativeEvent.preventDefault();
+                      this.addAnimationData(e, row, time);
+                      return true;
+                    }}
+                  />
+                </div>
                 ) : null}
 
                 <div className="vertical-divider"></div>                
@@ -1587,7 +1624,8 @@ class Editor extends Component {
                 state={this.state.layerproperties} 
                 set={this.layerEditProperty}
                 cancel={this.layerEditCancel} 
-                submit={this.layerEditSubmit} />
+                submit={this.layerEditSubmit} 
+                funding={this.props.global.funding} />
 
               <IonList>
                 <IonReorderGroup disabled={false} onIonItemReorder={this.handleReorder}>
@@ -1708,6 +1746,9 @@ export const mapDispatchToProps = dispatch => {
       },      
       fetchEntities: () => {
         return dispatch(global.fetchEntities());
+      },  
+      fetchFunding: () => {
+        return dispatch(global.fetchFunding());
       },  
       fetchPlan: (id) => {
         return dispatch(global.fetchPlan(id));

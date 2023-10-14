@@ -34,7 +34,11 @@ export default function selector(state=initialStateGlobal, action) {
         case 'FETCH_ENTITIES':
             newState = {...newState, entities: action.entities};
             return newState;
-        
+
+        case 'FETCH_FUNDING':
+            newState = {...newState, funding: action.funding};
+            return newState;
+                
         case 'FETCH_PLAN':
             newState = {...newState, 
                 id: action.plan.id, 

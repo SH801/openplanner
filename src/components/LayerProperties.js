@@ -15,7 +15,10 @@ import {
     IonSelect,
     IonSelectOption,
 } from '@ionic/react'
-import { ICON_URL } from "../constants";
+import { 
+    ICON_URL,
+    FUNDING_SUBTYPE
+ } from "../constants";
 import { Editor } from "react-draft-wysiwyg";
 import { analytics, colorFill } from 'ionicons/icons';
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
@@ -47,6 +50,23 @@ class LayerProperties extends Component {
          
     onChangeValue = (name, event) => {
         this.props.set(name, event.target.value);
+    }
+
+    onChangeFunding = (event) => {
+        const fundingcode = event.target.value;
+        let funding = null;
+        for(let i = 0; i < this.props.funding.length; i++) {
+            if (this.props.funding[i].code === fundingcode) funding = this.props.funding[i];
+        }
+
+        if (funding !== null) {
+            let fundingtitle = funding.code + " (" + FUNDING_SUBTYPE[funding.subtype] + ") - " + funding.description;
+            this.props.set("title", fundingtitle);
+            this.props.set("funding", fundingcode);
+
+            if ((this.props.state.name === "Untitled layer") || 
+                (this.props.state.name === "Background")) this.props.set("name", fundingtitle);
+        }
     }
 
     render() {
@@ -110,6 +130,16 @@ class LayerProperties extends Component {
                             {/* Comment out until we can get it working */}
                             {/* <IonInput value={this.props.state.iconurl} label="External icon URL" labelPlacement="floating" name="iconurl" onIonBlur={this.onBlur} onIonChange={this.onInputChange} type="text" placeholder="Enter internet address of external icon to use" /> */}
 
+                        </IonItem>
+
+                        <IonItem>
+                            <IonSelect className="funding-select" value={this.props.state.funding} label="DEFRA Funding" labelPlacement="stacked" placeholder="Select funding type" onIonChange={this.onChangeFunding}>
+                                {this.props.funding !== null ? (
+                                    this.props.funding.map((funding, index) => {
+                                        return <IonSelectOption key={index} value={funding.code}>{funding.code} ({FUNDING_SUBTYPE[funding.subtype]}) - {funding.description}</IonSelectOption>
+                                    })
+                                ) : null}
+                            </IonSelect>
                         </IonItem>
 
                         <IonItem>

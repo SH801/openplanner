@@ -50,6 +50,24 @@ export const ANIMATION_LAYER_LINGER = 3;
 // Animation time to transition to next layer
 export const ANIMATION_CAMERA_TRANSITION = 2;
 
+// General database ENUMS
+
+export const FUNDING_PERIOD = [
+    "Annual",
+    "Per visit"
+]
+
+export const FUNDING_TYPE = [
+    "Main payment",
+    "Supplement payment"
+]
+
+export const FUNDING_SUBTYPE = [
+    'SFI',
+    'CS'
+]
+
+
 // Default maxbounds 
 
 export const DEFAULT_MAXBOUNDS = [

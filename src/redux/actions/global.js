@@ -103,6 +103,40 @@ export const fetchEntities = () => {
 }
 
 /**
+ * fetchFunding
+ * 
+ * Fetches all funding options from backend server
+ * 
+ * @param {*} id
+ */
+export const fetchFunding = () => {
+  return (dispatch, getState) => {
+    const csrftoken = Cookies.get('csrftoken');
+    let headers = {
+      "Content-Type": "application/json",
+      'X-CSRFToken': csrftoken      
+    };
+    let apiparams = isDev() ? {headers, method: "POST"} : {headers, method: "POST", credentials: 'include'};
+    return fetch(API_URL + "/account/funding/", apiparams)
+      .then(res => {
+        if (res.status < 500) {
+          return res.json().then(data => {
+            return {status: res.status, data};
+          })
+        } else {
+          console.log("Server Error!");
+          throw res;
+        }
+      })
+      .then(res => {
+        if (res.status === 200) {
+          return dispatch({type: 'FETCH_FUNDING', funding: res.data});
+        }         
+      })
+  }
+}
+
+/**
  * fetchPlan
  * 
  * Fetches plan from backend server using id
