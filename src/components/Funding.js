@@ -18,9 +18,18 @@ import {
     IonCol,
 } from '@ionic/react'
 import { area, length } from '@turf/turf';
+import { CSVLink } from "react-csv";
 
 
 class Funding extends Component {
+
+    constructor(props) {
+        super(props);
+        this.state = {
+            dataHeaders: [],
+            dataBody: []
+        };
+    }
 
     closeModal = () => {
         this.props.close();
@@ -161,6 +170,35 @@ class Funding extends Component {
         return {layers: newlayers, total: this.convertForDisplay(totalvalue), totalvisible: this.convertForDisplay(totalvisiblevalue)};
     }
 
+    downloadCSV = (calculations) => {
+        console.log("downloadCSV");
+        const dataHeaders  = ['Name', 'Code', 'Unit', 'Unit cost', 'Misc', 'Quantity', 'Subtotal'] ;
+        var dataBody = [];
+
+        for(let i = 0; i < calculations.layers.length; i++) {
+            var layer = calculations.layers[i];
+            if (layer.visible) {
+                var dataLine =  [];
+                dataLine.push(layer.name);
+                dataLine.push(layer.funding);
+                dataLine.push(layer.calculation.units);
+                dataLine.push(layer.calculation.unitcost);
+                dataLine.push(layer.calculation.extra);
+                dataLine.push(layer.calculation.amount);
+                dataLine.push(layer.calculation.subtotal);
+                dataBody.push(dataLine);
+            }
+        }
+
+        dataLine = ['Total', '', '', '', '', '', calculations.totalvisible];
+        dataBody.push(dataLine);
+
+        this.setState({ dataBody: dataBody, dataHeaders: dataHeaders }, () => {
+            this.csvLink.link.click();
+        });
+
+    }
+
     render() {
         var calculations = this.getCalculations(this.props.funding, this.props.layers);
 
@@ -172,9 +210,24 @@ class Funding extends Component {
             backdropDismiss={false}
             onClick={(event) => event.stopPropagation()}
         >
+            <CSVLink
+                data={this.state.dataBody}
+                headers={this.state.dataHeaders}
+                filename="positivefarms-fundingcalculation.csv"
+                className="hidden"
+                ref={(r) => (this.csvLink = r)}
+                target="_blank"
+            />
+
             <IonHeader>
                 <IonToolbar>
                     <IonTitle>Funding calculator</IonTitle>
+                    <IonButtons slot="end">
+                        <IonButton style={{margin: "10px"}} color="success" shape="round" fill="solid" onClick={() => this.downloadCSV(calculations)}>
+                            <IonText style={{padding: "10px"}}>Download as file</IonText>
+                        </IonButton>
+                    </IonButtons>
+
                 </IonToolbar>
             </IonHeader>
             <IonContent className="ion-padding">

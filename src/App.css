@@ -162,6 +162,11 @@
   background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCI+ICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iLjM1ZW0iIHN0eWxlPSJmb250LXNpemU6IDE0cHg7IGZvbnQtZmFtaWx5OiAnSGVsdmV0aWNhIE5ldWUnLEFyaWFsLEhlbHZldGljYSxzYW5zLXNlcmlmOyBmb250LXdlaWdodDogYm9sZDsgdGV4dC1hbmNob3I6IG1pZGRsZTsiPjJEPC90ZXh0Pjwvc3ZnPg==);
 }
 
+.formfield-info {
+  font-size: 90%;
+  padding-bottom: 10px;
+}
+
 input[type="color"] {
   border: 0px white solid;
   padding: 0px;  
@@ -183,7 +188,7 @@ input[type="color"] {
 
 #siteproperties-modal {
   --max-width: 400px!important;
-  --max-height: 300px!important;
+  --max-height: 450px!important;
 }
 
 #layerproperties-modal {

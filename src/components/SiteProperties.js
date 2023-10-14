@@ -18,6 +18,7 @@ import {
     IonSelectOption,
     IonToggle,
     IonAlert,
+    IonText,
 } from '@ionic/react'
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 
@@ -119,11 +120,20 @@ class SiteProperties extends Component {
                         </IonItem>
 
                         <IonItem>
+                            <IonText className="formfield-info">Your base plan determines the particular area you will be making plans for</IonText>
+                        </IonItem>
+
+
+                        <IonItem>
                             <IonToggle 
                                 name="public"
                                 checked={this.props.state.public} 
                                 onIonChange={this.onChangeValue} >
                             Publicly viewable</IonToggle>
+                        </IonItem>
+
+                        <IonItem>
+                            <IonText className="formfield-info">By making your plans public, you promote your regenerative activities to the public and help other regenerative farmers build better plans</IonText>
                         </IonItem>
 
                     </IonList>
