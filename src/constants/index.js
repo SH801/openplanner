@@ -11,7 +11,7 @@ console.log("Development machine", isDev());
 export const API_URL = isDev() ? "http://localhost:80" : "";
 
 // Homepage to exit to 
-export const EXTERNAL_HOMEPAGE  = isDev() ? "http://localhost:80/account/" : "/account/";
+export const EXTERNAL_HOMEPAGE  = isDev() ? "http://localhost:80/account/" : "";
 
 // URL of icons
 export const ICON_URL = isDev() ? "http://localhost:80/static/assets/icon/actionIcons/coloured/" : "/static/assets/icon/actionIcons/coloured/";

@@ -2,7 +2,6 @@
   "name": "openplanner",
   "version": "0.1.0",
   "private": true,
-  "homepage": "/static/openplanner/",
   "dependencies": {
     "@ionic/react": "^7.4.2",
     "@mapbox/mapbox-gl-draw": "^1.4.3",

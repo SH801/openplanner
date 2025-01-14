@@ -7,11 +7,11 @@
   "sources": {
       "openmaptiles": {
           "type": "vector",
-          "url": "https://tiles.positivefarms.org/data/openmaptiles.json"
+          "url": "https://tiles.wewantwind.org/data/openmaptiles.json"
       }      
   },
-  "glyphs": "https://tiles.positivefarms.org/fonts/{fontstack}/{range}.pbf",
-  "sprite": "https://tiles.positivefarms.org/styles/basic/sprite",
+  "glyphs": "https://tiles.wewantwind.org/fonts/{fontstack}/{range}.pbf",
+  "sprite": "https://tiles.wewantwind.org/styles/basic/sprite",
   "layers": [
     {
       "id": "background",

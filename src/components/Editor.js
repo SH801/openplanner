@@ -9,6 +9,7 @@ import { connect } from 'react-redux';
 import { withRouter } from '../redux/functions/withRouter';
 import { global } from "../redux/actions";
 import { 
+  IonApp,
   IonButtons, 
   IonContent, 
   IonSplitPane, 
@@ -139,8 +140,8 @@ class Editor extends Component {
       styles: this.mapdrawStyles
     });
 
-    this.props.fetchFunding().then(() => {
-    });
+    // this.props.fetchFunding().then(() => {
+    // });
   }
 
   getUniqueID = () => {
@@ -172,7 +173,7 @@ class Editor extends Component {
           anchor.href =  URL.createObjectURL(new Blob(data, {type: "video/webm;codecs=h264"}));
           const now = new Date();
           const timesuffix = now.toISOString().substring(0,19).replaceAll('T', ' ').replaceAll(':', '-');
-          anchor.download = "positivefarms - " + timesuffix;
+          anchor.download = "wewantwind - " + timesuffix;
           anchor.click();
           toast.success('Recording finished - saved to downloads');
         }
@@ -516,8 +517,11 @@ class Editor extends Component {
         allfeatures.push(feature);
       });
     });
-    var overallboundingbox = bbox({type: "FeatureCollection", features: allfeatures});
-    this.state.map.fitBounds(overallboundingbox, {animate: false});
+    console.log(allfeatures);
+    if (allfeatures.length > 0) {
+      var overallboundingbox = bbox({type: "FeatureCollection", features: allfeatures});
+      this.state.map.fitBounds(overallboundingbox, {animate: false});  
+    }
     
     var initialCameraPositionId = this.getUniqueID();
     var cameraposition = this.cameraPropertiesNow();
@@ -535,8 +539,10 @@ class Editor extends Component {
     var animationdataindex = 1;
     this.state.layers.forEach((layer) => {
       var cameraactionid = this.getUniqueID();
-      var boundingbox = bbox(layer.featurecollection);
-      this.state.map.fitBounds(boundingbox, {animate: false});
+      if (layer.featurecollection.length > 0) {
+        var boundingbox = bbox(layer.featurecollection);
+        this.state.map.fitBounds(boundingbox, {animate: false});  
+      }
       cameraposition = this.cameraPropertiesNow();
       cameraposition.effectId = cameraactionid;
       camerapositions[cameraactionid] = cameraposition;
@@ -825,8 +831,8 @@ class Editor extends Component {
     let params = queryString.parse(this.props.router.location.search);
     this.setState({map: map});
     this.props.setGlobalState({map: map});
-    this.props.fetchEntities().then(() => {
-
+    // this.props.fetchEntities().then(() => {
+console.log(params);
       // Check if planid included in url params
       if ('planid' in params) {
         toast.success('Loading plan...');
@@ -894,7 +900,7 @@ class Editor extends Component {
         }
         this.setState({layers: []});
       }
-    });
+    // });
   }
 
   onSelectionChange = (data) => {
@@ -1420,7 +1426,7 @@ class Editor extends Component {
     anchor.href =  URL.createObjectURL(new Blob([GeoJSON], {type: "application/geo+json"}));
     const now = new Date();
     const timesuffix = now.toISOString().substring(0,19).replaceAll('T', ' ').replaceAll(':', '-');
-    anchor.download = "positivefarms - " + timesuffix + ".geojson";
+    anchor.download = "wewantwind - " + timesuffix + ".geojson";
     anchor.click();
   }
 
@@ -1440,6 +1446,7 @@ class Editor extends Component {
   render() {
     return (
       <>
+<IonApp>
 
       <IonPage>
 
@@ -1723,6 +1730,7 @@ class Editor extends Component {
           
         </IonContent>
       </IonPage>
+      </IonApp>
 
       </>
 

@@ -42,6 +42,7 @@ class SiteProperties extends Component {
     }
 
     submitForm = (event) => {
+        console.log(event);
         event.preventDefault();
         if (this.props.state.entityid === null) {
             this.setState({showentityalert: true});
